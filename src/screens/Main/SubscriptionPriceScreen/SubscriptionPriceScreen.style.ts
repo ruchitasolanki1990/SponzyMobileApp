@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   subTitle:{
-    fontSize: 18
+    fontSize: 16
   },
   blockTitle:{
     fontSize: 18,

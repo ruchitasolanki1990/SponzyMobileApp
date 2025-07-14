@@ -30,6 +30,9 @@ import RestrictedUsersScreen from "../screens/Main/RestrictedUsersScreen/Restric
 import SubscriptionPriceScreen from "../screens/Main/SubscriptionPriceScreen/SubscriptionPriceScreen";
 import MySubscribersScreen from "../screens/Main/MySubscribersScreen/MySubscribersScreen";
 import MySubscriptions from "../screens/Main/MySubscriptions/MySubscriptions";
+import ConversationScreen from "../screens/Main/ConversationScreen/ConversationScreen";
+import WalletScreen from "../screens/Main/WalletScreen/WalletScreen";
+import VerifiedAccountScreen from "../screens/Main/VerifiedAccountScreen/VerifiedAccountScreen";
 // Add these imports if the components exist or use placeholders if not implemented yet
 
 const Stack = createStackNavigator();
@@ -111,7 +114,7 @@ const MainDrawer = () => {
   const theme = useContext(ThemeContext);
   return (
     <Drawer.Navigator
-      initialRouteName={ROUTES.SUBSCRIPTION_PRICE}
+      initialRouteName={ROUTES.HOME}
       screenOptions={{
         headerRight: () => <ThemeToggleButton />,
         
@@ -142,6 +145,39 @@ const MainDrawer = () => {
       <Drawer.Screen 
         name={ROUTES.EDIT_PROFILE} 
         component={EditProfileScreen}
+        options={{
+          headerStyle: {
+            backgroundColor: theme.card.backgroundColor, // Light Blue header for Home
+          },
+          headerTintColor: String(theme.iconColor.color), // Text color for the header title and back button
+          headerShown: true, // Hide header since EditProfileScreen has its own
+        }}
+      />
+       <Drawer.Screen 
+        name={ROUTES.CONVERSATION} 
+        component={ConversationScreen}
+        options={{
+          headerStyle: {
+            backgroundColor: theme.card.backgroundColor, // Light Blue header for Home
+          },
+          headerTintColor: String(theme.iconColor.color), // Text color for the header title and back button
+          headerShown: true, // Hide header since EditProfileScreen has its own
+        }}
+      />
+       <Drawer.Screen 
+        name={ROUTES.WALLET} 
+        component={WalletScreen}
+        options={{
+          headerStyle: {
+            backgroundColor: theme.card.backgroundColor, // Light Blue header for Home
+          },
+          headerTintColor: String(theme.iconColor.color), // Text color for the header title and back button
+          headerShown: true, // Hide header since EditProfileScreen has its own
+        }}
+      />
+       <Drawer.Screen 
+        name={ROUTES.VERIFIED_ACCOUNT} 
+        component={VerifiedAccountScreen}
         options={{
           headerStyle: {
             backgroundColor: theme.card.backgroundColor, // Light Blue header for Home

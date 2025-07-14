@@ -8,7 +8,7 @@ import {
   Image,
 } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
-import { FontAwesome6, Ionicons } from '@expo/vector-icons';
+import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../redux/slices/userAuthSlice';
 import { ThemeContext } from '../constants/Themes';
@@ -126,6 +126,42 @@ const CustomDrawerContent = (props: any) => {
               ),
               onPress: () => props.navigation.navigate(ROUTES.EDIT_PROFILE),
               routeName: ROUTES.EDIT_PROFILE,
+            }}
+            color={theme.text.color}
+            {...props}
+          />
+             <CustomDrawerItem
+            item={{
+              label: 'Conversations',
+              icon: ({ color, size }: { color: string; size: number }) => (
+                <MaterialCommunityIcons name="send-outline" size={size} color={color} />
+              ),
+              onPress: () => props.navigation.navigate(ROUTES.CONVERSATION),
+              routeName: ROUTES.CONVERSATION,
+            }}
+            color={theme.text.color}
+            {...props}
+          />
+           <CustomDrawerItem
+            item={{
+              label: 'Wallet',
+              icon: ({ color, size }: { color: string; size: number }) => (
+                <Ionicons name="wallet-outline" size={size} color={color} />
+              ),
+              onPress: () => props.navigation.navigate(ROUTES.WALLET),
+              routeName: ROUTES.WALLET,
+            }}
+            color={theme.text.color}
+            {...props}
+          />
+           <CustomDrawerItem
+            item={{
+              label: 'Verified account!',
+              icon: ({ color, size }: { color: string; size: number }) => (
+                <MaterialIcons name="verified" size={size} color={color} />
+              ),
+              onPress: () => props.navigation.navigate(ROUTES.VERIFIED_ACCOUNT),
+              routeName: ROUTES.VERIFIED_ACCOUNT,
             }}
             color={theme.text.color}
             {...props}

@@ -122,7 +122,6 @@ const PrivacyAndSecurityScreen = () => {
             <Text
               style={[styles.cardTitle, theme.mute_text, { marginTop: 10 }]}
             >
-              {" "}
               If you don't recognize this session record, change your password
               immediately.
             </Text>

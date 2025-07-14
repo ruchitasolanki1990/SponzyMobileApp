@@ -2,6 +2,9 @@ export const ROUTES = {
   HOME: 'Home',
   PROFILE: 'Profile',
   EDIT_PROFILE: 'EditProfile',
+  CONVERSATION:'Conversation',
+  WALLET:'Wallet',
+  VERIFIED_ACCOUNT:'Verified Account',
 
   // Privacy and Security
   PRIVACY_AND_SECURITY: 'Privacy and Security',
