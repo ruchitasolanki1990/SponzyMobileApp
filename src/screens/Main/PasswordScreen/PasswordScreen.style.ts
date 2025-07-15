@@ -21,16 +21,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    fontSize: 14,
-    backgroundColor: "#fff",
-    color: "#222",
-  },
+  // input: {
+  //   borderWidth: 1,
+  //   borderColor: "#E0E0E0",
+  //   borderRadius: 8,
+  //   padding: 12,
+  //   marginBottom: 8,
+  //   fontSize: 14,
+  //   backgroundColor: "#fff",
+  //   color: "#222",
+  // },
   eyeIcon: {
     marginLeft: 8,
     padding: 4,
@@ -56,6 +56,26 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
+  },
+  // input: {
+  //   paddingVertical: 12,
+  //   fontSize: 16,
+  //   flex: 1,
+  // },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingVertical: 12,
     fontSize: 16,
   },
 });

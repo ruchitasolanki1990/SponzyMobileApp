@@ -6,7 +6,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 50, // Add extra padding for the bottom save button
   },
   header: {
     flexDirection: 'row',
@@ -232,6 +231,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom:50
   },
   bottomSaveButtonText: {
     fontSize: 18,

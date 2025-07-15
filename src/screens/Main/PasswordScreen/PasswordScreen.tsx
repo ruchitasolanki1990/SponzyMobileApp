@@ -2,7 +2,7 @@ import { ThemeContext } from "@/src/constants/Themes";
 import React, { useContext, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import styles from "./PasswordScreen.style";
-import { Ionicons } from "@expo/vector-icons";
+import { AntDesign, Ionicons } from "@expo/vector-icons";
 const PasswordScreen = () => {
   const theme = useContext(ThemeContext);
   const [oldPassword, setOldPassword] = useState("");
@@ -22,9 +22,11 @@ const PasswordScreen = () => {
   return (
     <View style={[styles.container, theme.background]}>
       <Text style={[styles.title, theme.text]}>Password</Text>
-      <Text style={[styles.sectionTitle, theme.mute_text]}>Update Password</Text>
+      <Text style={[styles.sectionTitle, theme.mute_text]}>
+        Update Password
+      </Text>
       {/* Password */}
-      <View>
+      {/* <View>
         <TextInput
           style={[
             styles.input,
@@ -37,14 +39,47 @@ const PasswordScreen = () => {
           placeholderTextColor={String(theme.text.color) + "99"}
           value={oldPassword}
           onChangeText={setOldPassword}
-          // secureTextEntry={!oldPassword}
-          // onBlur={() => setTouchedForOldPaswword((t) => ({ ...t, oldPassword: true }))}
+         
+        />
+      </View> */}
+      <View
+        style={[
+          styles.inputContainer,
+          theme.card,
+          { borderColor: theme.border.borderColor },
+        ]}
+      >
+        <AntDesign
+          name="unlock"
+          size={20}
+          color="#888b8f"
+          style={styles.inputIcon}
+        />
+        <TextInput
+          style={[styles.inputWithIcon, theme.text, theme.card]}
+          placeholder="Old Password"
+          placeholderTextColor={String(theme.text.color) + "99"}
+          value={oldPassword}
+          onChangeText={setOldPassword}
+          // onBlur={() => setTouched(t => ({ ...t, fullName: true }))}
+          // editable={!loading}
         />
       </View>
-      <View style={styles.passwordRow}>
+      <View
+        style={[
+          styles.inputContainer,
+          theme.card,
+          { borderColor: theme.border.borderColor, marginTop: 10 },
+        ]}
+      >
+        <AntDesign
+          name="lock"
+          size={20}
+          color="#888b8f"
+          style={styles.inputIcon}
+        />
         <TextInput
           style={[
-            styles.input,
             { flex: 1 },
             theme.text,
             theme.card,

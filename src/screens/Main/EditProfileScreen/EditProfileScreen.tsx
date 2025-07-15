@@ -111,16 +111,7 @@ const EditProfileScreen = () => {
   const [categories, setCategories] = useState<{ label: string; value: string }[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const languages = [
-    { label: 'English', value: 'en' },
-    { label: 'Spanish', value: 'es' },
-    { label: 'French', value: 'fr' },
-    { label: 'German', value: 'de' },
-    { label: 'Italian', value: 'it' },
-    { label: 'Portuguese', value: 'pt' },
-    { label: 'Russian', value: 'ru' },
-    { label: 'Chinese', value: 'zh' },
-    { label: 'Japanese', value: 'ja' },
-    { label: 'Korean', value: 'ko' },
+    { label: 'English', value: 'en' }
   ];
 
   // Dropdown options
@@ -168,7 +159,7 @@ const EditProfileScreen = () => {
       if (response.data.success) {
         setCategories(
           response.data?.data.map((item: any) => ({
-            label: item.category_name, // Adjust according to your API response
+            label: item.name, // Adjust according to your API response
             value: item.id,
           }))
         );
