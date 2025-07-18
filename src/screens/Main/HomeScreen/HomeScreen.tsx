@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
   FlatList,
   Modal,
   TextInput,
@@ -11,8 +10,8 @@ import {
   PanResponder,
   Animated,
 } from "react-native";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "../../../redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../../redux/store";
 import { ThemeContext } from "../../../constants/Themes";
 import styles from "./HomeScreen.style";
 import ProfileWithSearchBarComponents from "@/src/components/HomePageComponent/ProfileWithSearchBarComponents";
@@ -20,11 +19,10 @@ import { Feather } from "@expo/vector-icons";
 import PostShareComponent from "@/src/components/HomePageComponent/PostShareComponent";
 import MediaGrid from "@/src/components/MediaGrid/MediaGrid";
 import * as ImagePicker from "expo-image-picker";
-// import axios from "axios";
 import * as DocumentPicker from "expo-document-picker";
-import { Video, ResizeMode } from 'expo-av';
-import { Picker } from '@react-native-picker/picker';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Video, ResizeMode } from "expo-av";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import axios from "axios";
 // Define the type for an asset, extending ImagePickerAsset
 interface SelectedAsset extends ImagePicker.ImagePickerAsset {
   type?: "image" | "video";
@@ -55,23 +53,29 @@ interface PostItem {
 const HomeScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
   const theme = useContext(ThemeContext);
-  const [profileInput, setProfileInput] = useState('');
+  const [profileInput, setProfileInput] = useState("");
   const [postData, setPostData] = useState<PostItem[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [zipFiles, setZipFiles] = useState<ZipFile[]>([]);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [videoTitle, setVideoTitle] = useState('');
+  const [videoTitle, setVideoTitle] = useState("");
   const [showTitleInput, setShowTitleInput] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownValue, setDropdownValue] = useState<string | null>(null);
   // For draggable title text
-  const screenWidth = Dimensions.get('window').width;
-  const screenHeight = Dimensions.get('window').height;
-  const initialTitleX = useRef(new Animated.Value(screenWidth / 2 - 80)).current; // 80 is half of assumed text width
+  const screenWidth = Dimensions.get("window").width;
+  const screenHeight = Dimensions.get("window").height;
+  const initialTitleX = useRef(
+    new Animated.Value(screenWidth / 2 - 80)
+  ).current; // 80 is half of assumed text width
   const initialTitleY = useRef(new Animated.Value(screenHeight - 300)).current; // Near bottom
-  const pan = useRef(new Animated.ValueXY({ x: screenWidth / 2 - 80, y: screenHeight - 300 })).current;
-  
+  const pan = useRef(
+    new Animated.ValueXY({ x: screenWidth / 2 - 80, y: screenHeight - 300 })
+  ).current;
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  const token = useSelector((state: RootState) => state.userAuth.token);
+
   useEffect(() => {
     // Reset position when modal opens or closes
     if (videoModalVisible) {
@@ -85,10 +89,9 @@ const HomeScreen = () => {
       onPanResponderGrant: () => {
         pan.setOffset({ x: (pan.x as any)._value, y: (pan.y as any)._value });
       },
-      onPanResponderMove: Animated.event([
-        null,
-        { dx: pan.x, dy: pan.y },
-      ], { useNativeDriver: false }),
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
       onPanResponderRelease: () => {
         pan.flattenOffset();
       },
@@ -105,7 +108,6 @@ const HomeScreen = () => {
       quality: 1,
       selectionLimit: 9, // Allow up to 9 items for 3x3 grid
     });
-
     if (!result.canceled) {
       // Map the assets to include type information
       const assetsWithType: SelectedAsset[] = result.assets.map((asset) => ({
@@ -113,7 +115,44 @@ const HomeScreen = () => {
         type: asset.type === "video" ? "video" : "image",
       }));
       setSelectedAssets(assetsWithType);
-      console.log(assetsWithType);
+    }
+  };
+
+  const uploadImage = async (selectedImageOrDoc) => {
+    try {
+      
+      const formData = new FormData();
+      console.log("selectedAssets",selectedImageOrDoc)
+      selectedImageOrDoc.forEach((file, index) => {
+        console.log(file)
+        debugger
+        
+        formData.append("files[]", {
+          uri: file.uri, // e.g., from image picker
+          type: file.mimeType,
+          name: "download.zip",
+        });
+      });
+     debugger
+      const response = await axios.post(`${apiUrl}/imageTesting`,formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      // Adjust the mapping based on your API response structure
+      if (response.data.success) {
+        console.log(response.data);
+      }
+      
+    } catch (error) {
+      
+      console.log(error);
+    } finally {
+      console.log("finally");
+      // setUploading(false);
     }
   };
 
@@ -152,22 +191,6 @@ const HomeScreen = () => {
     setZipFiles((prev) => prev.filter((file) => file.uri !== uri));
   };
 
-  // const fetchData = async () => {
-  //   axios
-  //     .get("https://dummyjson.com/products")
-  //     .then((response) => {
-  //       console.log(response.data);
-  //       setData(response.data?.products);
-  //     })
-  //     .catch((error) => {
-  //       console.error("Error fetching data:", error);
-  //     });
-  // };
-
-  // useEffect(() => {
-  //   fetchData();
-  // }, []);
-
   return (
     // <ScrollView keyboardShouldPersistTaps="handled">
     <>
@@ -183,7 +206,10 @@ const HomeScreen = () => {
               },
             ]}
           >
-            <ProfileWithSearchBarComponents value={profileInput} onChangeText={setProfileInput} />
+            <ProfileWithSearchBarComponents
+              value={profileInput}
+              onChangeText={setProfileInput}
+            />
           </View>
           <View
             style={{
@@ -205,17 +231,19 @@ const HomeScreen = () => {
                 color={theme.iconColor.color}
               />
             </TouchableOpacity>
-            <TouchableOpacity onPress={async () => {
-              let result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-                allowsMultipleSelection: false,
-                quality: 1,
-              });
-              if (!result.canceled && result.assets && result.assets[0]) {
-                setVideoUri(result.assets[0].uri);
-                setVideoModalVisible(true);
-              }
-            }}>
+            <TouchableOpacity
+              onPress={async () => {
+                let result = await ImagePicker.launchImageLibraryAsync({
+                  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                  allowsMultipleSelection: false,
+                  quality: 1,
+                });
+                if (!result.canceled && result.assets && result.assets[0]) {
+                  setVideoUri(result.assets[0].uri);
+                  setVideoModalVisible(true);
+                }
+              }}
+            >
               <Feather name="video" size={20} color={theme.iconColor.color} />
             </TouchableOpacity>
             <Feather name="paperclip" size={20} color={theme.iconColor.color} />
@@ -282,25 +310,41 @@ const HomeScreen = () => {
             }}
           >
             <TouchableOpacity
-              style={[styles.publishButton, theme.button, { borderRadius: 20, opacity: profileInput.trim() ? 1 : 0.5 }]}
+              style={[
+                styles.publishButton,
+                theme.button,
+                { borderRadius: 20, opacity: profileInput.trim() ? 1 : 0.5 },
+              ]}
               onPress={() => {
                 // Example: push a new post to postData
                 const newPost: PostItem = {
                   id: postData.length + 1,
-                  avatar_image: 'https://placehold.co/60x60', // Placeholder
+                  avatar_image: "https://placehold.co/60x60", // Placeholder
                   description: profileInput,
-                  username: 'username', // Placeholder
+                  username: "username", // Placeholder
                   timeduration: new Date().toLocaleTimeString(), // Example time
-                  image: selectedAssets.filter(a => a.type === 'image').map(a => a.uri),
-                  video: selectedAssets.filter(a => a.type === 'video').map(a => a.uri),
+                  image: selectedAssets
+                    .filter((a) => a.type === "image")
+                    .map((a) => a.uri),
+                  video: selectedAssets
+                    .filter((a) => a.type === "video")
+                    .map((a) => a.uri),
                   zipFiles: zipFiles,
                   isLiked: true,
-                  totalLike:10,
+                  totalLike: 10,
                   totalComments: 100,
                 };
-                setPostData(prev => [newPost, ...prev]);
-                setProfileInput('');
-                console.log("selectedAssets",selectedAssets);
+                setPostData((prev) => [newPost, ...prev]);
+                console.log("selectedasset",selectedAssets)
+                console.log("zip file",zipFiles)
+                if(selectedAssets.length > 0){
+                  uploadImage(selectedAssets);
+                }
+                if(zipFiles.length > 0){
+                  uploadImage(zipFiles)
+                }
+                
+                setProfileInput("");
                 setSelectedAssets([]);
                 setZipFiles([]);
               }}
@@ -330,17 +374,36 @@ const HomeScreen = () => {
         transparent={true}
         onRequestClose={() => setVideoModalVisible(false)}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)' }}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)" }}>
           {/* Close Button */}
-          <TouchableOpacity onPress={() => { setVideoModalVisible(false); setVideoUri(null); setVideoTitle(''); setShowTitleInput(false); }} style={{ position: 'absolute', top: 40, left: 20, backgroundColor: 'red', borderRadius: 16, width: 40, height: 40, justifyContent: 'center', alignItems: 'center', zIndex: 10 }}>
+          <TouchableOpacity
+            onPress={() => {
+              setVideoModalVisible(false);
+              setVideoUri(null);
+              setVideoTitle("");
+              setShowTitleInput(false);
+            }}
+            style={{
+              position: "absolute",
+              top: 40,
+              left: 20,
+              backgroundColor: "red",
+              borderRadius: 16,
+              width: 40,
+              height: 40,
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 10,
+            }}
+          >
             <Feather name="x" size={28} color="#fff" />
           </TouchableOpacity>
           {/* Video Preview - fills the screen */}
           {videoUri && (
-            <View style={{ flex: 1, width: '100%' }}>
+            <View style={{ flex: 1, width: "100%" }}>
               <Video
                 source={{ uri: videoUri }}
-                style={{ flex: 1, width: '100%' }}
+                style={{ flex: 1, width: "100%" }}
                 useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
                 shouldPlay
@@ -350,7 +413,7 @@ const HomeScreen = () => {
                 <Animated.View
                   {...panResponder.panHandlers}
                   style={{
-                    position: 'absolute',
+                    position: "absolute",
                     left: pan.x,
                     top: pan.y,
                     zIndex: 20,
@@ -358,15 +421,15 @@ const HomeScreen = () => {
                 >
                   <Text
                     style={{
-                      color: '#fff',
+                      color: "#fff",
                       fontSize: 22,
-                      fontWeight: 'bold',
-                      textShadowColor: 'rgba(0,0,0,0.7)',
+                      fontWeight: "bold",
+                      textShadowColor: "rgba(0,0,0,0.7)",
                       textShadowOffset: { width: 1, height: 1 },
                       textShadowRadius: 4,
                       paddingHorizontal: 8,
                       paddingVertical: 2,
-                      backgroundColor: 'rgba(0,0,0,0.2)',
+                      backgroundColor: "rgba(0,0,0,0.2)",
                       borderRadius: 8,
                     }}
                   >
@@ -378,56 +441,136 @@ const HomeScreen = () => {
           )}
           {/* Small text icon button for setting title */}
           <TouchableOpacity
-            style={{ position: 'absolute', top: 40, right: 30, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 16, width: 36, height: 36, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+            style={{
+              position: "absolute",
+              top: 40,
+              right: 30,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              borderRadius: 16,
+              width: 36,
+              height: 36,
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 20,
+            }}
             onPress={() => setShowTitleInput(true)}
           >
             <Feather name="type" size={20} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ position: 'absolute', top: 86, right: 30, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 16, width: 36, height: 36, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+            style={{
+              position: "absolute",
+              top: 86,
+              right: 30,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              borderRadius: 16,
+              width: 36,
+              height: 36,
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 20,
+            }}
             onPress={() => setShowDropdown(true)}
           >
-            <MaterialCommunityIcons name="form-dropdown" size={24} color="#fff" />
+            <MaterialCommunityIcons
+              name="form-dropdown"
+              size={24}
+              color="#fff"
+            />
           </TouchableOpacity>
           {/* Minimal input overlay for title */}
           {showTitleInput && (
-            <View style={{ position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center', zIndex: 30 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30,30,30,0.95)', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, minWidth: 220 }}>
+            <View
+              style={{
+                position: "absolute",
+                bottom: 100,
+                left: 0,
+                right: 0,
+                alignItems: "center",
+                zIndex: 30,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: "rgba(30,30,30,0.95)",
+                  borderRadius: 20,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  minWidth: 220,
+                }}
+              >
                 <TextInput
                   value={videoTitle}
                   onChangeText={setVideoTitle}
                   placeholder="Add a title..."
                   placeholderTextColor="#aaa"
-                  style={{ color: '#fff', fontSize: 16, flex: 1, minWidth: 120, padding: 0, margin: 0, backgroundColor: 'transparent' }}
+                  style={{
+                    color: "#fff",
+                    fontSize: 16,
+                    flex: 1,
+                    minWidth: 120,
+                    padding: 0,
+                    margin: 0,
+                    backgroundColor: "transparent",
+                  }}
                   maxLength={100}
                   autoFocus
                 />
-                <TouchableOpacity onPress={() => setShowTitleInput(false)} style={{ marginLeft: 8 }}>
+                <TouchableOpacity
+                  onPress={() => setShowTitleInput(false)}
+                  style={{ marginLeft: 8 }}
+                >
                   <Feather name="check" size={20} color="#fff" />
                 </TouchableOpacity>
               </View>
             </View>
           )}
           {/* Next Button at the bottom of the video modal */}
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', zIndex: 100 }} pointerEvents="box-none">
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              alignItems: "center",
+              zIndex: 100,
+            }}
+            pointerEvents="box-none"
+          >
             <TouchableOpacity
-              style={{ backgroundColor:theme.button.backgroundColor, borderRadius: 24, paddingHorizontal: 40, paddingVertical: 14, margin: 24, elevation: 2 }}
+              style={{
+                backgroundColor: theme.button.backgroundColor,
+                borderRadius: 24,
+                paddingHorizontal: 40,
+                paddingVertical: 14,
+                margin: 24,
+                elevation: 2,
+              }}
               onPress={() => {
                 // Print videoUri, videoTitle, pan.x, pan.y, and dropdownValue
-                console.log('Video URI:', videoUri);
-                console.log('Video Title:', videoTitle);
-                console.log('Pan X:', (pan.x as any)._value);
-                console.log('Pan Y:', (pan.y as any)._value);
-                console.log('Dropdown Value:', dropdownValue);
+                console.log("Video URI:", videoUri);
+                console.log("Video Title:", videoTitle);
+                console.log("Pan X:", (pan.x as any)._value);
+                console.log("Pan Y:", (pan.y as any)._value);
+                console.log("Dropdown Value:", dropdownValue);
                 setTimeout(() => {
                   setVideoModalVisible(false);
                 }, 200);
               }}
             >
-              <Text style={[theme.text,{color:theme.button.color,fontWeight:'bold'}]}>Next</Text>
+              <Text
+                style={[
+                  theme.text,
+                  { color: theme.button.color, fontWeight: "bold" },
+                ]}
+              >
+                Next
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>        
+        </View>
       </Modal>
       {/* Dropdown Modal */}
       <Modal
@@ -437,27 +580,48 @@ const HomeScreen = () => {
         onRequestClose={() => setShowDropdown(false)}
       >
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)' }}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.2)" }}
           activeOpacity={1}
           onPressOut={() => setShowDropdown(false)}
         >
-          <View style={{ position: 'absolute', top: 130, right: 30, backgroundColor: '#222', borderRadius: 10, paddingVertical: 8, width: 160, zIndex: 100 }}>
+          <View
+            style={{
+              position: "absolute",
+              top: 130,
+              right: 30,
+              backgroundColor: "#222",
+              borderRadius: 10,
+              paddingVertical: 8,
+              width: 160,
+              zIndex: 100,
+            }}
+          >
             <TouchableOpacity
               style={{ padding: 12 }}
-              onPress={() => { setDropdownValue('Option 1'); setShowDropdown(false); }}
+              onPress={() => {
+                setDropdownValue("Option 1");
+                setShowDropdown(false);
+              }}
             >
-              <Text style={{ color: '#fff', fontSize: 16 }}>Available For Subscriber</Text>
+              <Text style={{ color: "#fff", fontSize: 16 }}>
+                Available For Subscriber
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{ padding: 12 }}
-              onPress={() => { setDropdownValue('Option 2'); setShowDropdown(false); }}
+              onPress={() => {
+                setDropdownValue("Option 2");
+                setShowDropdown(false);
+              }}
             >
-              <Text style={{ color: '#fff', fontSize: 16 }}>Available For Everyone</Text>
+              <Text style={{ color: "#fff", fontSize: 16 }}>
+                Available For Everyone
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
-      </>
+    </>
     // </ScrollView>
   );
 };

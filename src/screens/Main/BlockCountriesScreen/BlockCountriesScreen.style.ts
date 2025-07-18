@@ -51,5 +51,15 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+  error: {
+    color: 'red',
+    fontSize: 13,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  selectedCountryLabel: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
 });
 export default styles;

@@ -3,10 +3,10 @@ import { Text, TouchableOpacity, View } from "react-native";
 import styles from "./BlockCountriesScreen.style";
 import { ThemeContext } from "@/src/constants/Themes";
 import { Ionicons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/redux/store";
+import { MultiSelect } from "react-native-element-dropdown";
 const BlockCountriesScreen = () => {
   const theme = useContext(ThemeContext);
   const [countries, setCountries] = useState<
@@ -14,7 +14,7 @@ const BlockCountriesScreen = () => {
   >([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState<string[]>([]);
   const [touched, setTouched] = useState({
     country: false,
   });
@@ -76,31 +76,35 @@ const BlockCountriesScreen = () => {
             color="#888b8f"
             style={styles.inputIcon}
           />
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={country}
-              onValueChange={(value) => {
-                setCountry(value);
-              }}
-              style={[styles.picker, theme.text]}
-              enabled={!countriesLoading}
-            >
-              {countriesLoading ? (
-                <Picker.Item label="Loading countries..." value="" />
-              ) : (
-                countries.map((cntry) => (
-                  <Picker.Item
-                    key={cntry.value}
-                    label={cntry.label}
-                    value={cntry.value}
-                  />
-                ))
-              )}
-            </Picker>
-          </View>
+          <MultiSelect
+            data={countries}
+            labelField="label"
+            valueField="value"
+            value={country}
+            onChange={item => {
+              setCountry(item);
+              setTouched((t) => ({ ...t, country: true }));
+            }}
+            placeholder="Pick Countries"
+            search
+            style={{ backgroundColor: theme.card.backgroundColor, color: theme.text.color }}
+          />
         </View>
         {errors.country && touched.country && (
           <Text style={styles.error}>{errors.country}</Text>
+        )}
+        {/* Display selected country names below the dropdown */}
+        {country.length > 0 && (
+          <View style={{ marginTop: 8 }}>
+            {country.map((val) => {
+              const selected = countries.find(c => c.value === val);
+              return (
+                <Text key={val} style={[styles.selectedCountryLabel, { color: theme.text.color }]}>
+                  {selected ? selected.label : val}
+                </Text>
+              );
+            })}
+          </View>
         )}
       </View>
       <View>
