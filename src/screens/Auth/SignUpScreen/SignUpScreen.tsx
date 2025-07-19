@@ -211,7 +211,8 @@ const SignUpScreen: React.FC<SignUpScreenProps> = () => {
   return (
     <GradientBackground colors={["#1976d2", "#00C6FB", "#FFFFFF"]}>
       <KeyboardAvoidingView
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 100} behavior={Platform.OS === 'ios' ? 'padding' :'height'} style={{ flex: 1 }}
+       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 100} 
+      // behavior={Platform.OS === 'ios' ? 'padding' :'height'} style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
           <View style={[styles.card, theme.card, theme.shadow,theme.background]} >

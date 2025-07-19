@@ -20,7 +20,6 @@ import {
   Ionicons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-// import { Picker } from "@react-native-picker/picker";
 import { Calendar } from "react-native-calendars";
 import { ThemeContext } from "../../../constants/Themes";
 import { RootState, AppDispatch } from "../../../redux/store";
@@ -29,6 +28,36 @@ import styles from "./EditProfileScreen.style";
 import axios from "axios";
 import { Dropdown } from "react-native-element-dropdown";
 import { MultiSelect } from "react-native-element-dropdown";
+import Toast from 'react-native-toast-message';
+
+function normalizeDate(dateStr: string): string {
+  // If already in YYYY-MM-DD, return as is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  // If in MM/DD/YYYY or DD/MM/YYYY, convert to YYYY-MM-DD
+  const parts = dateStr.split(/[\/\-]/);
+  if (parts.length === 3) {
+    // Try MM/DD/YYYY
+    if (parseInt(parts[0], 10) <= 12) {
+      return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+    }
+    // Try DD/MM/YYYY
+    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+  }
+  return dateStr; // fallback
+}
+
+function formatDateMMDDYYYY(dateStr: string): string {
+  // Expects dateStr in YYYY-MM-DD
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  const [year, month, day] = dateStr.split("-");
+  return `${month}/${day}/${year}`;
+}
+
+function get18YearsAgoDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 18);
+  return d.toISOString().split("T")[0];
+}
 
 const EditProfileScreen = () => {
   const theme = useContext(ThemeContext);
@@ -46,29 +75,17 @@ const EditProfileScreen = () => {
   const [showUsername, setShowUsername] = useState(false);
   const [email, setEmail] = useState(user?.email || "");
   const [profession, setProfession] = useState(user?.profession || "");
-  const [language, setLanguage] = useState(
-    Array.isArray(user?.language)
-      ? user.language
-      : user?.language
-      ? [user.language]
-      : []
+  const [language, setLanguage] = useState();
+  // Set birthday to user's birthday or exactly 18 years ago from today (preserving month and day)
+  const [birthday, setBirthday] = useState(
+    // user?.birthday ? normalizeDate(user.birthday) :
+    // new Date(
+    //   new Date().setFullYear(new Date().getFullYear() - 18)
+    // ).toISOString().split("T")[0]
   );
-  const [birthday, setBirthday] = useState(user?.birthday || "");
-  const [gender, setGender] = useState(
-    Array.isArray(user?.gender)
-      ? user.gender
-      : user?.gender
-      ? [user.gender]
-      : []
-  );
+  const [gender, setGender] = useState("");
   const [website, setWebsite] = useState(user?.website || "");
-  const [category, setCategory] = useState(
-    Array.isArray(user?.category)
-      ? user.category
-      : user?.category
-      ? [user.category]
-      : []
-  );
+  const [category, setCategory] = useState();
   const [story, setStory] = useState(user?.story || "");
 
   // Social Profiles
@@ -96,13 +113,7 @@ const EditProfileScreen = () => {
 
   // Billing Information
   const [company, setCompany] = useState(user?.company || "");
-  const [country, setCountry] = useState(
-    Array.isArray(user?.country)
-      ? user.country
-      : user?.country
-      ? [user.country]
-      : []
-  );
+  const [country, setCountry] = useState("");
   const [city, setCity] = useState(user?.city || "");
   const [address, setAddress] = useState(user?.address || "");
   const [postalCode, setPostalCode] = useState(user?.postalCode || "");
@@ -159,10 +170,13 @@ const EditProfileScreen = () => {
     { label: string; value: string }[]
   >([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const languages = [{ label: "English", value: "en" }];
+  const languages = [
+    { label: "(Language) Not specified", value: "" },
+    { label: "English", value: "en" }];
 
   // Dropdown options
   const genders = [
+    { label: "(Gender) Not specified", value: "" },
     { label: "Male", value: "male" },
     { label: "Female", value: "female" },
   ];
@@ -177,12 +191,13 @@ const EditProfileScreen = () => {
       });
       // Adjust the mapping based on your API response structure
       if (response.data.success) {
-        setCountries(
-          response.data?.data.map((item: any) => ({
+        setCountries([
+          { label: "* Select Country", value: "" },
+          ...response.data?.data.map((item: any) => ({
             label: item.country_name, // or item.label if your API returns that
             value: item.id, // or item.value
           }))
-        );
+        ]);
       }
     } catch (error) {
       setCountries([]);
@@ -240,6 +255,7 @@ const EditProfileScreen = () => {
         },
       });
       console.log(response.data);
+      fetchProfileDetails()
     } catch (error) {
       console.log('Error fetching profile:', error);
     }
@@ -255,38 +271,46 @@ const EditProfileScreen = () => {
     if (profileDetails && Object.keys(profileDetails).length > 0) {
       setFullName(profileDetails.name || "");
       setUsername(profileDetails.username || "");
-      setAvatarImage(profileDetails.avatar_image || "");
-      setCoverImage(profileDetails.cover_image || "");
-      setStatus(profileDetails.status || "");
+      setShowUsername(profileDetails.hide_name === "yes" ? true : false)
       setEmail(profileDetails.email || "");
       setProfession(profileDetails.profession || "");
-      let lang = Array.isArray(profileDetails.language)
-        ? profileDetails.language
-        : profileDetails.language
-        ? [profileDetails.language]
-        : [];
-      if (!lang || lang.length === 0) {
-        lang = ['en'];
-      }
-      setLanguage(lang);
-      setBirthday(profileDetails.birthday || "");
-      setGender(
-        Array.isArray(profileDetails.gender)
-          ? profileDetails.gender
-          : profileDetails.gender
-          ? [profileDetails.gender]
-          : []
-      );
+      setLanguage(profileDetails?.language);
+      // if (
+      //   (!profileDetails.birthdate || profileDetails.birthdate === "") &&
+      //   profileDetails.birthdate_changed === "no"
+      // ) {
+      //   setBirthday(get18YearsAgoDate());
+      // } else {
+      //   setBirthday(profileDetails.birthdate ? normalizeDate(profileDetails.birthdate) : "");
+      // }
+      setBirthday(profileDetails?.birthdate)
+      setGender(profileDetails?.gender);
       setWebsite(profileDetails.website || "");
-      setCategory(
-        Array.isArray(profileDetails.category)
-          ? profileDetails.category
-          : profileDetails.category
-          ? [profileDetails.category]
-          : []
-      );
+      let cat= profileDetails.categories_id;
+      const catArray = cat?.split(',').map(Number);
+      setCategory(catArray);
+      setCompany(profileDetails?.company)
+      setCountry(Number(profileDetails?.countries_id))
+      setCity(profileDetails?.city)
+      setAddress(profileDetails?.address)
+      setPostalCode(profileDetails?.zip)
+      setFacebookLink(profileDetails?.facebook)
+      setTwitterLink(profileDetails?.twitter)
+      setInstagramLink(profileDetails?.instagram)
+      setYoutubeLink(profileDetails?.youtube)
+      setPinterestLink(profileDetails?.pinterest)
+      setGithubLink(profileDetails?.github)
+      setSnapchatLink(profileDetails?.snapchat)
+      setTiktokLink(profileDetails?.tiktok)
+      setTelegramLink(profileDetails?.telegram)
+      setTwitchLink(profileDetails?.twitch)
+      setDiscordLink(profileDetails?.discord)
+      setVkLink(profileDetails?.vk)
+      setRedditLink(profileDetails?.reddit)
+      setSpotifyLink(profileDetails?.spotify)
+      setThreadsLink(profileDetails?.threads)
+      setKickLink(profileDetails?.kick)
       setStory(profileDetails.story || "");
-      // ...repeat for all other fields (social links, billing, etc.)
     }
   }, [profileDetails]);
 
@@ -315,14 +339,14 @@ const EditProfileScreen = () => {
         : profession.trim().length > 100
         ? "Profession must be at most 100 characters"
         : ""),
-    language: language.length < 1 ? "Language is required" : "",
+    language:"",
     birthday: "",
-    gender: gender.length < 1 ? "Gender is required" : "",
+    gender:"",
     website:
       website && !websiteRegex.test(website)
         ? "Please enter a valid website URL (starting with http:// or https://)"
         : "",
-    category: category.length < 3 ? "Please select at least 3 categories" : "",
+    category:"",
     story:
       !story || story.trim().length < 10
         ? "Please tell us about your story (min 10 characters)"
@@ -395,7 +419,7 @@ const EditProfileScreen = () => {
       company && company.trim().length < 2
         ? "Company name must be at least 2 characters"
         : "",
-    country: country.length < 1 ? "Country is required" : "",
+    country: !country ? "Country is required" : "",
     city:
       city && city.trim().length < 2
         ? "City must be at least 2 characters"
@@ -416,7 +440,11 @@ const EditProfileScreen = () => {
         : "",
   };
 
-  const isFormValid = !errors.fullName && !errors.username && !errors.story;
+  const isFormValid =
+    !errors.fullName &&
+    !errors.username &&
+    !errors.story &&
+    !errors.country; // this checks your validation error for country
 
   const handleDateSelect = (date: string) => {
     setBirthday(date);
@@ -430,6 +458,7 @@ const EditProfileScreen = () => {
 
   const handleSave = async () => {
     if (!isFormValid) {
+      setTouched((t) => ({ ...t, country: true }));
       Alert.alert("Validation Error", "Please fix the errors before saving.");
       return;
     }
@@ -443,50 +472,125 @@ const EditProfileScreen = () => {
       const updatedUser = {
         ...user,
         id: user?.id || "user-" + Date.now(),
-        name: fullName.trim(),
-        email: email.trim(), // Ensure email is preserved
-        username: username.trim(),
+        // name: fullName.trim(),
+        // email: email.trim(), // Ensure email is preserved
+        // username: username.trim(),
         avatar_image: avatarImage.trim(),
         cover_image: coverImage.trim(),
         status: status.trim(),
-        profession: profession.trim(),
-        language: language,
-        birthday: birthday,
-        gender: gender,
-        website: website.trim(),
-        category: category,
-        story: story.trim(),
-        facebookLink: facebookLink.trim(),
-        twitterLink: twitterLink.trim(),
-        instagramLink: instagramLink.trim(),
-        youtubeLink: youtubeLink.trim(),
-        pinterestLink: pinterestLink.trim(),
-        githubLink: githubLink.trim(),
-        snapchatLink: snapchatLink.trim(),
-        telegramLink: telegramLink.trim(),
-        twitchLink: twitchLink.trim(),
-        discordLink: discordLink.trim(),
-        vkLink: vkLink.trim(),
-        redditLink: redditLink.trim(),
-        spotifyLink: spotifyLink.trim(),
-        threadsLink: threadsLink.trim(),
-        kickLink: kickLink.trim(),
-        tiktokLink: tiktokLink.trim(),
-        company: company.trim(),
-        country: country,
-        city: city.trim(),
-        address: address.trim(),
-        postalCode: postalCode.trim(),
-      };
-      console.log("updatedUser",updatedUser)
-      updateProfile(updatedUser)
-    //  dispatch(setProfile(updatedUser));
+        // website: website.trim(),
+        // categories_id: category,
+        // profession: profession.trim(),
+        // language: language,
+        // birthday: birthday,
+        // gender: gender,
+       
+        // story: story.trim(),
+        // facebook: facebookLink.trim(),
+        // twitter: twitterLink.trim(),
+        // instagram: instagramLink.trim(),
+        // youtube: youtubeLink.trim(),
+        // pinterest: pinterestLink.trim(),
+        // github: githubLink.trim(),
+        // snapchat: snapchatLink.trim(),
+        // telegram: telegramLink.trim(),
+        // twitch: twitchLink.trim(),
+        // discord: discordLink.trim(),
+        // vk: vkLink.trim(),
+        // reddit: redditLink.trim(),
+        // spotify: spotifyLink.trim(),
+        // threads: threadsLink.trim(),
+        // kick: kickLink.trim(),
+        // tiktok: tiktokLink.trim(),
+        // company: company.trim(),
+        // countries_id: country,
+        // city: city.trim(),
+        // address: address.trim(),
+        // zip: postalCode.trim(),
 
-      Alert.alert("Success", "Profile updated successfully!", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+
+        name: fullName.trim(),
+        email: email.trim(), // Ensure email is preserved
+        username: username.trim(),
+        website:website.trim(),
+        categories_id:category,
+        profession:profession,
+        countries_id : country,
+        city:city,
+        address:address,
+        zip:postalCode,
+        company:company,
+        story:story,
+        facebook:facebookLink,
+        twitter:twitchLink,
+        instagram:instagramLink,
+        youtube:youtubeLink,
+        pinterest:pinterestLink,
+        github:githubLink,
+        snapchat:snapchatLink,
+        tiktok:tiktokLink,
+        telegram:telegramLink,
+        twitch:twitchLink,
+        discord:discordLink,
+        vk:vkLink,
+        reddit:redditLink,
+        spotify:spotifyLink,
+        threads:threadsLink,
+        kick:kickLink,
+        gender:gender,
+        birthdate:formatDateMMDDYYYY(birthday),
+        language :language,
+        hide_name:showUsername === true ? "yes" : "no"
+      };
+      const updateUserObj={
+        name: fullName.trim(),
+        email: email.trim(), // Ensure email is preserved
+        username: username.trim(),
+        website:website.trim(),
+        categories_id:category,
+        profession:profession,
+        countries_id : country,
+        city:city,
+        address:address,
+        zip:postalCode,
+        company:company,
+        story:story,
+        facebook:facebookLink,
+        twitter:twitchLink,
+        instagram:instagramLink,
+        youtube:youtubeLink,
+        pinterest:pinterestLink,
+        github:githubLink,
+        snapchat:snapchatLink,
+        tiktok:tiktokLink,
+        telegram:telegramLink,
+        twitch:twitchLink,
+        discord:discordLink,
+        vk:vkLink,
+        reddit:redditLink,
+        spotify:spotifyLink,
+        threads:threadsLink,
+        kick:kickLink,
+        gender:gender,
+        birthdate:formatDateMMDDYYYY(birthday),
+        language :language,
+        hide_name:showUsername === true ? "yes" : "no"
+      }
+      console.log("updatedUser",updateUserObj)
+     updateProfile(updateUserObj)
+     dispatch(setProfile(updatedUser));
+     Toast.show({
+      type: 'success',
+      text1: 'Profile updated successfully',
+    });
+    // Optionally navigate back after a delay
+    setTimeout(() => navigation.goBack(), 1000);
+
     } catch (error) {
-      Alert.alert("Error", "Failed to update profile. Please try again.");
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to update profile. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -520,7 +624,10 @@ const EditProfileScreen = () => {
 
           <View style={styles.datePickerContent}>
             <Calendar
-              onDayPress={(day) => handleDateSelect(day.dateString)}
+              onDayPress={profileDetails?.birthdate_changed === "yes" ? () => {} : (day) => handleDateSelect(day.dateString)}
+              enableSwipeMonths={true}
+              current={birthday || get18YearsAgoDate()}
+              // Highlight the user's birthday if it exists, otherwise highlight 18 years ago from today
               markedDates={
                 birthday
                   ? {
@@ -531,8 +638,8 @@ const EditProfileScreen = () => {
                     }
                   : {}
               }
-              maxDate={new Date().toISOString().split("T")[0]}
-              minDate={"1900-01-01"}
+              maxDate={get18YearsAgoDate()}
+              minDate={"1920-01-01"}
               theme={{
                 backgroundColor: "transparent",
                 calendarBackground: "transparent",
@@ -565,8 +672,8 @@ const EditProfileScreen = () => {
   return (
     <>
       <KeyboardAvoidingView
-        keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 100}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        // keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 100}
+        // behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -598,7 +705,7 @@ const EditProfileScreen = () => {
                 />
                 <TextInput
                   style={[styles.inputWithIcon, theme.text, theme.card]}
-                  placeholder="Enter your full name"
+                  placeholder="Full name"
                   placeholderTextColor={String(theme.text.color) + "99"}
                   value={fullName}
                   onChangeText={(text) =>
@@ -691,7 +798,7 @@ const EditProfileScreen = () => {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!loading}
+                  editable={metaData?.isSuperAdmin !== false && true}
                   onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                 />
               </View>
@@ -723,7 +830,7 @@ const EditProfileScreen = () => {
 
                 <TextInput
                   style={[styles.inputWithIcon, theme.text]}
-                  placeholder="Enter your profession or occupation"
+                  placeholder="Profession/Occupation"
                   placeholderTextColor={String(theme.text.color) + "99"}
                   value={profession}
                   onChangeText={setProfession}
@@ -757,22 +864,6 @@ const EditProfileScreen = () => {
                   color="#888b8f"
                   style={styles.inputIcon}
                 />
-                {/* <Dropdown
-                  data={languages}
-                  labelField="label"
-                  valueField="value"
-                  value={language}
-                  onChange={(item) => {
-                    setLanguage(item);
-                    setTouched((t) => ({ ...t, language: true }));
-                  }}
-                  placeholder="Pick Language"
-                  search
-                  style={{
-                    backgroundColor: theme.card.backgroundColor,
-                    color: theme.text.color,
-                  }}
-                /> */}
                 <Dropdown
                     style={styles.dropdown}
                     placeholderStyle={[styles.placeholderStyle,theme.text]}
@@ -783,12 +874,11 @@ const EditProfileScreen = () => {
                     maxHeight={300}
                     labelField="label"
                     valueField="value"
-                    placeholder="Select Language"
+                    placeholder="(Language) Not specified"
                     searchPlaceholder="Search..."
                     value={language}
                     onChange={(item) => {
-                      console.log("item",item)
-                      setLanguage(item);
+                      setLanguage(item.value);
                     }}
                   />
                 {errors.language && touched.language && (
@@ -820,16 +910,17 @@ const EditProfileScreen = () => {
                 <TouchableOpacity
                   style={styles.dateButtonWithIcon}
                   onPress={() => setShowDatePicker(true)}
-                  disabled={loading}
+                  disabled={profileDetails?.birthdate_change === "yes" || loading}
                 >
                   <Text
                     style={[
                       styles.dateButtonText,
                       theme.text,
                       !birthday && { opacity: 0.6 },
+                      profileDetails?.birthdate_changed === "yes" && { color: "#aaa" }
                     ]}
                   >
-                    {birthday || "Select your birthday"}
+                    {birthday ? formatDateMMDDYYYY(birthday) : "* Birthdate"}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -858,22 +949,6 @@ const EditProfileScreen = () => {
                   color="#888b8f"
                   style={styles.inputIcon}
                 />
-                {/* <Dropdown
-                  data={genders}
-                  labelField="label"
-                  valueField="value"
-                  value={gender}
-                  onChange={(item) => {
-                    setGender(item);
-                    setTouched((t) => ({ ...t, gender: true }));
-                  }}
-                  placeholder="Pick Gender"
-                  search
-                  style={{
-                    backgroundColor: theme.card.backgroundColor,
-                    color: theme.text.color,
-                  }}
-                /> */}
                  <Dropdown
                     style={styles.dropdown}
                     placeholderStyle={[styles.placeholderStyle,theme.text]}
@@ -884,11 +959,11 @@ const EditProfileScreen = () => {
                     maxHeight={300}
                     labelField="label"
                     valueField="value"
-                    placeholder="Select Gender"
+                    placeholder="(Gender) Not specified"
                     searchPlaceholder="Search..."
                     value={gender}
                     onChange={(item) => {
-                      setGender(item);
+                      setGender(item.value);
                     }}
                   />
                 
@@ -921,7 +996,7 @@ const EditProfileScreen = () => {
                   />
                   <TextInput
                     style={[styles.inputWithIcon, theme.text]}
-                    placeholder="Enter your website URL (e.g., https://example.com)"
+                    placeholder="Website"
                     placeholderTextColor={String(theme.text.color) + "99"}
                     value={website}
                     onChangeText={setWebsite}
@@ -942,15 +1017,9 @@ const EditProfileScreen = () => {
                   style={[
                     styles.inputContainer,
                     theme.card,theme.border
-                    // {
-                    //   borderColor:
-                    //     errors.gender && touched.gender
-                    //       ? "red"
-                    //       : theme.border.borderColor,
-                    // },
                   ]}
                 >
-                <AntDesign name="bulb1"    size={20}
+                <AntDesign name="bulb1" size={20}
                   color="#888b8f"
                   style={styles.inputIcon} />
                 <MultiSelect
@@ -962,12 +1031,11 @@ const EditProfileScreen = () => {
                   labelField="label"
                   valueField="value"
                   value={category}
-                  placeholder="Select Categories"
+                  placeholder="Categories"
                   onChange={item => {
                     setCategory(item);
                     setTouched((t) => ({ ...t, category: true }));
                   }}
-                  // placeholder="Pick Categories"
                   search
                 />
                 
@@ -980,7 +1048,7 @@ const EditProfileScreen = () => {
           </View>
           
           {/* Billing Information Section */}{" "}
-          {profileDetails && profileDetails?.verified_id === "yes" && (
+        
             <View
               style={[styles.sectionContainer, theme.card, theme.background]}
             >
@@ -1007,7 +1075,7 @@ const EditProfileScreen = () => {
                   />
                   <TextInput
                     style={[styles.inputWithIcon, theme.text]}
-                    placeholder="Enter company name"
+                    placeholder="Company"
                     placeholderTextColor={String(theme.text.color) + "99"}
                     value={company}
                     onChangeText={setCompany}
@@ -1050,11 +1118,11 @@ const EditProfileScreen = () => {
                     maxHeight={300}
                     labelField="label"
                     valueField="value"
-                    placeholder="Select Country"
+                    placeholder="* Select Country"
                     searchPlaceholder="Search..."
-                    value={countries}
+                    value={country}
                     onChange={(item) => {
-                      setCountry(item);
+                      setCountry(item.value);
                     }}
                   />
                 </View>
@@ -1085,7 +1153,7 @@ const EditProfileScreen = () => {
                   />
                   <TextInput
                     style={[styles.inputWithIcon, theme.text]}
-                    placeholder="Enter city name"
+                    placeholder="City"
                     placeholderTextColor={String(theme.text.color) + "99"}
                     value={city}
                     onChangeText={setCity}
@@ -1121,7 +1189,7 @@ const EditProfileScreen = () => {
                   />
                   <TextInput
                     style={[styles.textarea, theme.text]}
-                    placeholder="Enter your address"
+                    placeholder="Address"
                     placeholderTextColor={String(theme.text.color) + "99"}
                     value={address}
                     onChangeText={setAddress}
@@ -1159,7 +1227,7 @@ const EditProfileScreen = () => {
                   />
                   <TextInput
                     style={[styles.inputWithIcon, theme.text]}
-                    placeholder="Enter postal/zip code"
+                    placeholder="Postal/Zip"
                     placeholderTextColor={String(theme.text.color) + "99"}
                     value={postalCode}
                     onChangeText={setPostalCode}
@@ -1176,7 +1244,7 @@ const EditProfileScreen = () => {
                 )}
               </View>
             </View>
-          )}
+          {/* )} */}
           {/* Social Profiles Section */}
           {profileDetails && profileDetails?.verified_id === "yes" && (
             <View
@@ -1840,6 +1908,7 @@ const EditProfileScreen = () => {
           </View>
         </ScrollView>
         {renderDatePicker()}
+        <Toast />
       </KeyboardAvoidingView>
     </>
   );

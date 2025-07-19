@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
 import { FontAwesome6, Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -16,6 +17,7 @@ import { RootState } from '../redux/store';
 import { performLogoutWithAPI, performLogout } from '../utils/logoutUtils';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ROUTES } from '../constants/routes';
+import axios from 'axios';
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 
@@ -61,12 +63,16 @@ const CustomDrawerContent = (props: any) => {
   const handleLogout = async () => {
     try {
       if (token && user?.id) {
-        // Use the comprehensive logout utility
-        await performLogoutWithAPI(token, user.id, apiUrl);
-        console.log('Logout completed successfully');
-        
-        // Close drawer after successful logout
-        props.navigation.closeDrawer();
+        // Call your logout API
+        await axios.post(`${apiUrl}/logout`, {}, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        // On success, clear Redux session
+        dispatch(logout());
+        // Optionally navigate to login screen
+        props.navigation.replace('Login');
       } else {
         console.warn('No token or user ID available for logout');
         // Fallback to local logout if no token/user ID
@@ -74,15 +80,7 @@ const CustomDrawerContent = (props: any) => {
         props.navigation.closeDrawer();
       }
     } catch (error: any) {
-      console.error('Logout error:', error);
-      
-      // Even if there's an error, ensure local logout happens
-      try {
-        await performLogout();
-        props.navigation.closeDrawer();
-      } catch (fallbackError) {
-        console.error('Fallback logout also failed:', fallbackError);
-      }
+      Alert.alert('Logout Failed', 'Please try again.');
     }
   };
 
