@@ -120,21 +120,23 @@ const HomeScreen = () => {
 
   const uploadImage = async (selectedImageOrDoc) => {
     try {
-      
       const formData = new FormData();
       console.log("selectedAssets",selectedImageOrDoc)
+      // mutiple file upload using one api
       selectedImageOrDoc.forEach((file, index) => {
         console.log(file)
+         let name= file.mimeType === "application/x-zip-compressed" ? file.name : file.fileName
         debugger
-        
-        formData.append("files[]", {
-          uri: file.uri, // e.g., from image picker
-          type: file.mimeType,
-          name: "download.zip",
-        });
+        formData.append("files[]",file.file
+        //    {
+        //   uri: file.uri, // e.g., from image picker
+        //   type: file.mimeType,
+        //   name:name,
+        // }
+      );
       });
-     debugger
-      const response = await axios.post(`${apiUrl}/imageTesting`,formData, {
+
+      const response = await axios.post(`${apiUrl}/upload/media`,formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Accept: "application/json",
