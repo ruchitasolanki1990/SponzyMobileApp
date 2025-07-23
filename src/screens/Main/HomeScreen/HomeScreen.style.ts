@@ -131,6 +131,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  largeFileName:{
+    color: '#797979',
+    fontSize:16,
+    textAlign:'center',
+    paddingVertical:20
+  },
+  oops:{
+    color: '#575757',
+    fontSize:30,
+    textAlign:'center',
+    marginVertical:10
+  }
 });
 
 export default styles;

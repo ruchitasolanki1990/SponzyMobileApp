@@ -23,11 +23,14 @@ import * as DocumentPicker from "expo-document-picker";
 import { Video, ResizeMode } from "expo-av";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import axios from "axios";
+import * as Progress from "react-native-progress";
+import Toast from 'react-native-toast-message';
 // Define the type for an asset, extending ImagePickerAsset
 interface SelectedAsset extends ImagePicker.ImagePickerAsset {
   type?: "image" | "video";
 }
 
+// Define the type of Postal Code
 interface ZipFile {
   uri: string;
   name: string;
@@ -63,6 +66,9 @@ const HomeScreen = () => {
   const [showTitleInput, setShowTitleInput] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownValue, setDropdownValue] = useState<string | null>(null);
+  const [settings, setSettings] = useState([]);
+  // const [uploadProgress, setUploadProgress] = useState<number>(0); // Changed to single number for overall progress
+  const [isUploading, setIsUploading] = useState(false);
   // For draggable title text
   const screenWidth = Dimensions.get("window").width;
   const screenHeight = Dimensions.get("window").height;
@@ -75,6 +81,25 @@ const HomeScreen = () => {
   ).current;
   const apiUrl = process.env.EXPO_PUBLIC_API_URL;
   const token = useSelector((state: RootState) => state.userAuth.token);
+  const [uploadProgress, setUploadProgress] = useState({});
+  const [showLargeFileModal, setShowLargeFileModal] = useState(false);
+  const [largeFileMessage, setLargeFileMessage] = useState("");
+  // Fetch Home Settings
+
+  const fetchSettingsForHome = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/settings/home`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.data.success) {
+        setSettings(response.data.data);
+      }
+    } catch (error) {
+      console.log("Error", "Failed to load categories");
+    }
+  };
 
   useEffect(() => {
     // Reset position when modal opens or closes
@@ -82,6 +107,10 @@ const HomeScreen = () => {
       pan.setValue({ x: screenWidth / 2 - 80, y: screenHeight - 300 });
     }
   }, [videoModalVisible]);
+
+  useEffect(() => {
+    fetchSettingsForHome();
+  }, []);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -106,7 +135,7 @@ const HomeScreen = () => {
       allowsMultipleSelection: true,
       aspect: [4, 3],
       quality: 1,
-      selectionLimit: 9, // Allow up to 9 items for 3x3 grid
+      selectionLimit: settings?.maximum_files_post, // Allow up to 9 items for 3x3 grid
     });
     if (!result.canceled) {
       // Map the assets to include type information
@@ -114,55 +143,187 @@ const HomeScreen = () => {
         ...asset,
         type: asset.type === "video" ? "video" : "image",
       }));
-      setSelectedAssets(assetsWithType);
+      //setSelectedAssets(assetsWithType);
+      validateImageBySizeType(assetsWithType);
     }
   };
 
+  const validateImageBySizeType = (assetsWithType) => {
+    console.log("assetsWithType", assetsWithType);
+    // Map extensions to MIME types for validation
+    const extensionToMimeType = {
+      png: "image/png",
+      jpeg: "image/jpeg",
+      jpg: "image/jpeg",
+      gif: "image/gif",
+      ief: "image/ief",
+      mp4: "video/mp4",
+      mkv: "audio/x-matroska", // Note: .mkv is typically video, but per request, mapped to audio/x-matroska
+      mp3: "audio/mpeg",
+    };
+    // Allowed extensions
+    const allowedExtensions = [
+      "png",
+      "jpeg",
+      "jpg",
+      "gif",
+      "ief",
+      "mp4",
+      "mkv",
+      "mp3",
+    ];
+    const validImages = [];
+    const inValidMedia = [];
+    for (const asset of assetsWithType) {
+      const uri = asset.uri;
+      const fileName = asset.fileName || uri.split("/").pop();
+      const extension = fileName.split(".").pop().toLowerCase();
+      const mimeType = asset.mimeType?.toLowerCase();
+
+      // Check file extension and MIME type
+      if (
+        !allowedExtensions.includes(extension) ||
+        (mimeType && !Object.values(extensionToMimeType).includes(mimeType))
+      ) {
+        setLargeFileMessage(
+          `${fileName} has an invalid extension. Allowed: ${allowedExtensions.join(
+            ", "
+          )}.`
+        );
+        inValidMedia.push(asset)
+        setShowLargeFileModal(true);
+        continue;
+      }
+
+      const maxSize = parseMaxFileSizeToBytes(settings?.file_size_allowed);
+      if (asset.fileSize > maxSize) {
+        console.log(
+          `${fileName} is too large (${asset.fileSize}). Maximum size is ${maxSize}.`
+        );
+        setLargeFileMessage(
+          `${fileName} is too large (${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB). Maximum size is (${(maxSize / (1024 * 1024)).toFixed(2)} MB).`
+        );
+        inValidMedia.push(asset)
+        setShowLargeFileModal(true);
+        continue;
+      }
+      validImages.push(asset);
+    }
+    console.log("validImages", validImages);
+    console.log( "inValidMedia",inValidMedia)
+    if(validImages.length > 0)
+    uploadImage(validImages);
+  };
+
+  const parseMaxFileSizeToBytes = (sizeInput) => {
+    const match = sizeInput.match(/^(\d*\.?\d+)\s*(KB|MB|GB)$/i);
+    if (!match) {
+      throw new Error('Invalid maxFileSize format. Use format like "200MB".');
+    }
+    const value = parseFloat(match[1]);
+    const unit = match[2].toUpperCase();
+
+    switch (unit) {
+      case "KB":
+        return value * 1024;
+      case "MB":
+        return value * 1024 * 1024;
+      case "GB":
+        return value * 1024 * 1024 * 1024;
+      default:
+        throw new Error("Unsupported unit. Use KB, MB, or GB.");
+    }
+  };
   const uploadImage = async (selectedImageOrDoc) => {
+    setIsUploading(true);
+    setUploadProgress(0);
     try {
       const formData = new FormData();
-      console.log("selectedAssets",selectedImageOrDoc)
       // mutiple file upload using one api
       selectedImageOrDoc.forEach((file, index) => {
-        console.log(file)
-         let name= file.mimeType === "application/x-zip-compressed" ? file.name : file.fileName
-        debugger
-        formData.append("files[]",file.file
-        //    {
-        //   uri: file.uri, // e.g., from image picker
-        //   type: file.mimeType,
-        //   name:name,
-        // }
-      );
+        console.log("==", file);
+        let name =
+          file.mimeType === "application/x-zip-compressed"
+            ? file.name
+            : file.fileName;
+        console.log("file====>", file.file);
+
+        formData.append(
+          "files[]",
+          // file.file
+             {
+            uri: file.uri, // e.g., from image picker
+            type: file.mimeType,
+            name:name,
+          }
+        );
       });
 
-      const response = await axios.post(`${apiUrl}/upload/media`,formData, {
+      const response = await axios.post(`${apiUrl}/upload/media`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
+        onUploadProgress: (progressEvent) => {
+          const progress = progressEvent.loaded / progressEvent.total;
+          setUploadProgress(progress);
+        },
       });
-      
       // Adjust the mapping based on your API response structure
       if (response.data.success) {
-        console.log(response.data);
+        console.log(response.data.data);
+
+        setSelectedAssets(response.data.data);
       }
-      
     } catch (error) {
-      
       console.log(error);
     } finally {
-      console.log("finally");
-      // setUploading(false);
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
   //Remove Asset
   const handleRemoveAsset = (asset: SelectedAsset) => {
-    setSelectedAssets((prevAssets) =>
-      prevAssets.filter((item) => item.uri !== asset.uri)
-    );
+    console.log(asset)
+    deleteImage(asset?.name)
+    // setSelectedAssets((prevAssets) =>
+    //   prevAssets.filter((item) => item.uri !== asset.uri)
+    // );
+  };
+
+  
+  // Delete Image API
+  const deleteImage = async (medianame: string) => {
+    try {
+      const response = await axios.post(
+        `${apiUrl}/delete/media`,
+        { file: medianame },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (response.data.success) {
+       console.log(response.data?.message)
+       Toast.show({
+        type: 'success',
+        text1: response.data?.message,
+      });
+         setSelectedAssets((prevAssets) =>
+          prevAssets.filter((item) => item.name !== medianame)
+        );
+      }
+       // setSelectedAssets((prevAssets) =>
+    //   prevAssets.filter((item) => item.uri !== asset.uri)
+    // );
+    } catch (error) {
+      console.error("Delete error:", error);
+      return false;
+    }
   };
 
   //Zip File Picker
@@ -181,7 +342,7 @@ const HomeScreen = () => {
           mimeType: result.assets[0].mimeType || "application/zip",
         };
         setZipFiles((prev) => [...prev, newZipFile]);
-        console.log("Selected ZIP file:", newZipFile);
+        // console.log("Selected ZIP file:", newZipFile);
       }
     } catch (error) {
       console.error("Error picking ZIP file:", error);
@@ -251,6 +412,23 @@ const HomeScreen = () => {
             <Feather name="paperclip" size={20} color={theme.iconColor.color} />
             <Feather name="lock" size={20} color={theme.iconColor.color} />
           </View>
+          {/* Progress Bar for Uploading */}
+          {isUploading && (
+            <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
+              <Text style={[theme.text, { marginBottom: 5 }]}>
+                Uploading: {Math.round(uploadProgress * 100)}%
+              </Text>
+              <Progress.Bar
+                progress={uploadProgress}
+                width={null}
+                height={8}
+                color={theme.primaryColor.color}
+                unfilledColor="#ccc"
+                borderWidth={0}
+                borderRadius={4}
+              />
+            </View>
+          )}
 
           {/* Display images and videos */}
           <MediaGrid
@@ -337,15 +515,15 @@ const HomeScreen = () => {
                   totalComments: 100,
                 };
                 setPostData((prev) => [newPost, ...prev]);
-                console.log("selectedasset",selectedAssets)
-                console.log("zip file",zipFiles)
-                if(selectedAssets.length > 0){
-                  uploadImage(selectedAssets);
-                }
-                if(zipFiles.length > 0){
-                  uploadImage(zipFiles)
-                }
-                
+                // console.log("selectedasset", selectedAssets);
+                // console.log("zip file", zipFiles);
+                // if (selectedAssets.length > 0) {
+                //   uploadImage(selectedAssets);
+                // }
+                // if (zipFiles.length > 0) {
+                //   uploadImage(zipFiles);
+                // }
+
                 setProfileInput("");
                 setSelectedAssets([]);
                 setZipFiles([]);
@@ -368,6 +546,67 @@ const HomeScreen = () => {
           maxToRenderPerBatch={10}
         />
       </View>
+      
+      {/* Large File Size Modal */}
+      <Modal
+        visible={showLargeFileModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLargeFileModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+          <View
+            style={{
+              backgroundColor: theme.card.backgroundColor,
+              borderRadius: 10,
+              padding: 20,
+              width: "80%",
+              alignItems: "center",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setShowLargeFileModal(false);
+                setLargeFileMessage("");
+              }}
+              style={{
+                padding:20,
+               // backgroundColor: "red",
+                borderRadius: 25,
+                width: 50,
+                height: 50,
+                justifyContent: "center",
+                alignItems: "center",
+                borderColor: 'red',
+                borderStyle:'solid',
+                borderWidth:'medium'
+              }}
+            >
+              <Feather name="x" size={20} color="red" />
+            </TouchableOpacity>
+            <Text style={styles.oops}>Oops...</Text>
+            <Text style={styles.largeFileName}>
+                      {largeFileMessage}
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowLargeFileModal(false);
+                setLargeFileMessage("");
+              }}
+              style={{
+                backgroundColor: theme.button.backgroundColor,
+                borderRadius: 20,
+                paddingHorizontal: 30,
+                paddingVertical: 10,
+              }}
+            >
+              <Text style={[theme.text, { color: theme.button.color, fontWeight: "bold" }]}>
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Video Modal */}
       <Modal
@@ -552,11 +791,11 @@ const HomeScreen = () => {
               }}
               onPress={() => {
                 // Print videoUri, videoTitle, pan.x, pan.y, and dropdownValue
-                console.log("Video URI:", videoUri);
-                console.log("Video Title:", videoTitle);
-                console.log("Pan X:", (pan.x as any)._value);
-                console.log("Pan Y:", (pan.y as any)._value);
-                console.log("Dropdown Value:", dropdownValue);
+                // console.log("Video URI:", videoUri);
+                // console.log("Video Title:", videoTitle);
+                // console.log("Pan X:", (pan.x as any)._value);
+                // console.log("Pan Y:", (pan.y as any)._value);
+                // console.log("Dropdown Value:", dropdownValue);
                 setTimeout(() => {
                   setVideoModalVisible(false);
                 }, 200);

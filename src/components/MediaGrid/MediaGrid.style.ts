@@ -64,24 +64,52 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   assetName: {
-    fontSize: 11,
-    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 2,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    color: 'white',
-    padding:5
+    padding:5,
   },
-  assetType: {
-    fontSize: 9,
-    color: '#6c757d',
-    textAlign: 'center',
-    fontWeight: '400',
+  assetFileName:{
+    fontSize: 14,
+    fontWeight: '700',
+    color:'white'
   },
-  removeButton: {
+  assetFileSize:{
+    fontSize: 11,
+    fontWeight: '600',
+    color:'white',
+    textTransform:'uppercase'
+  },
+  assetFileType:{
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    padding: 4,
+    backgroundColor:'#0006',
+    borderRadius: 4,
+    zIndex: 2
+  },
+  uploadSuccessButton: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'green',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  uploadFailButton: {
     position: 'absolute',
     top: 6,
     right: 6,

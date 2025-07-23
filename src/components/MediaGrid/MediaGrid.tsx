@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useContext, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import styles from './MediaGrid.style';
-
+import { ThemeContext } from '@/src/constants/Themes';
 // Define the type for an asset, extending ImagePickerAsset
 interface MediaAsset extends ImagePicker.ImagePickerAsset {
   type?: 'image' | 'video';
@@ -28,12 +28,11 @@ const MediaGrid: React.FC<MediaGridProps> = ({
   padding = 20,
 }) => {
   const videoRefs = useRef<{ [key: string]: Video | null }>({});
-  
   // Get screen dimensions for responsive grid
   const { width: screenWidth } = Dimensions.get('window');
   const itemWidth = (screenWidth - (padding * 2) - (spacing * (columns - 1))) / columns;
   const itemHeight = itemWidth * 0.9; // Maintain aspect ratio
-
+  const theme = useContext(ThemeContext);
   const handleRemoveAsset = (asset: MediaAsset) => {
     if (onRemoveAsset) {
       onRemoveAsset(asset);
@@ -41,15 +40,19 @@ const MediaGrid: React.FC<MediaGridProps> = ({
   };
 
   const renderAsset = (asset: MediaAsset, index: number) => {
-    const isImage = asset.type === 'image' || asset.type === undefined;
-    const isVideo = asset.type === 'video';
+    const isImage = asset?.format === 'image';
+    
+    const isVideo = asset?.format === 'video';
 
     return (
       <View key={asset.uri || index} style={[styles.assetItem, { width: itemWidth, height: itemHeight }]}>
         <View style={styles.mediaContainer}>
+          <View style={styles.assetFileType}>
+          <Text style={styles.assetFileSize}>{asset?.extension}</Text>
+          </View>
           {isImage && (
             <Image 
-              source={{ uri: asset.uri }} 
+              source={{ uri:asset?.pathFile }} 
               style={styles.mediaPreview}
               resizeMode="cover"
             />
@@ -74,20 +77,22 @@ const MediaGrid: React.FC<MediaGridProps> = ({
               </View>
             </View>
           )}
-          <Text style={styles.assetName} numberOfLines={1}>
-            {asset.fileName || 'Unknown File'}
+          <View  style={[styles.assetName]}>
+          <Text style={styles.assetFileName} numberOfLines={1}>
+            {asset?.name}
           </Text>
+          <Text style={styles.assetFileSize}>{asset?.size2}</Text>
+          </View>
         </View>
         
-        {onRemoveAsset && (
-          <TouchableOpacity 
+        {onRemoveAsset && ( <TouchableOpacity 
             onPress={() => handleRemoveAsset(asset)} 
-            style={styles.removeButton}
+            style={styles.uploadSuccessButton}
             activeOpacity={0.7}
           >
-            <Feather name="x" size={14} color="#fff" />
-          </TouchableOpacity>
-        )}
+            <Feather name="check" size={14} color="#fff" />
+          </TouchableOpacity>)
+          }
       </View>
     );
   };

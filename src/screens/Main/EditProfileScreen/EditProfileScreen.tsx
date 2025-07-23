@@ -78,10 +78,6 @@ const EditProfileScreen = () => {
   const [language, setLanguage] = useState();
   // Set birthday to user's birthday or exactly 18 years ago from today (preserving month and day)
   const [birthday, setBirthday] = useState(
-    // user?.birthday ? normalizeDate(user.birthday) :
-    // new Date(
-    //   new Date().setFullYear(new Date().getFullYear() - 18)
-    // ).toISOString().split("T")[0]
   );
   const [gender, setGender] = useState("");
   const [website, setWebsite] = useState(user?.website || "");
