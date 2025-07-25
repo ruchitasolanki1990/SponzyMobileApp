@@ -15,7 +15,7 @@ import { AppDispatch, RootState } from "../../../redux/store";
 import { ThemeContext } from "../../../constants/Themes";
 import styles from "./HomeScreen.style";
 import ProfileWithSearchBarComponents from "@/src/components/HomePageComponent/ProfileWithSearchBarComponents";
-import { Feather } from "@expo/vector-icons";
+import { AntDesign, Feather, MaterialIcons } from "@expo/vector-icons";
 import PostShareComponent from "@/src/components/HomePageComponent/PostShareComponent";
 import MediaGrid from "@/src/components/MediaGrid/MediaGrid";
 import * as ImagePicker from "expo-image-picker";
@@ -24,12 +24,13 @@ import { Video, ResizeMode } from "expo-av";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import axios from "axios";
 import * as Progress from "react-native-progress";
-import Toast from 'react-native-toast-message';
+import Toast from "react-native-toast-message";
+import EmojiPicker from 'rn-emoji-keyboard';
+
 // Define the type for an asset, extending ImagePickerAsset
 interface SelectedAsset extends ImagePicker.ImagePickerAsset {
   type?: "image" | "video";
 }
-
 // Define the type of Postal Code
 interface ZipFile {
   uri: string;
@@ -37,7 +38,6 @@ interface ZipFile {
   size: number;
   mimeType: string;
 }
-
 // Post item interface for feed/posts
 interface PostItem {
   id: number;
@@ -54,9 +54,8 @@ interface PostItem {
 }
 
 const HomeScreen = () => {
-  const dispatch = useDispatch<AppDispatch>();
   const theme = useContext(ThemeContext);
-  const [profileInput, setProfileInput] = useState("");
+  const [desc, setDesc] = useState("");
   const [postData, setPostData] = useState<PostItem[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [zipFiles, setZipFiles] = useState<ZipFile[]>([]);
@@ -67,15 +66,10 @@ const HomeScreen = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownValue, setDropdownValue] = useState<string | null>(null);
   const [settings, setSettings] = useState([]);
-  // const [uploadProgress, setUploadProgress] = useState<number>(0); // Changed to single number for overall progress
   const [isUploading, setIsUploading] = useState(false);
   // For draggable title text
   const screenWidth = Dimensions.get("window").width;
   const screenHeight = Dimensions.get("window").height;
-  const initialTitleX = useRef(
-    new Animated.Value(screenWidth / 2 - 80)
-  ).current; // 80 is half of assumed text width
-  const initialTitleY = useRef(new Animated.Value(screenHeight - 300)).current; // Near bottom
   const pan = useRef(
     new Animated.ValueXY({ x: screenWidth / 2 - 80, y: screenHeight - 300 })
   ).current;
@@ -84,8 +78,30 @@ const HomeScreen = () => {
   const [uploadProgress, setUploadProgress] = useState({});
   const [showLargeFileModal, setShowLargeFileModal] = useState(false);
   const [largeFileMessage, setLargeFileMessage] = useState("");
-  // Fetch Home Settings
+  const [price, setPrice] = useState("");
+  const [priceVisible, setPriceVisible] = useState(false);
+  const [title, setTitle] = useState("");
+  const [titleVisible, setTitleVisible] = useState(false);
+  const [lock, setLock] = useState(true);
+  const [originalZip, setOriginalZip] = useState({});
+  const [showVideoOnTheWay, setShowVideoOnTheWay] = useState(false);
+  const [videoMessage, setVideoMessage] = useState("");
+  const [publicationMessageShow, setPublicationMessageShow] = useState(false);
+  const [uploadedMessage, setUploadedMessage] = useState([]);
+  const priceRef = useRef(null);
+  const titleRef = useRef(null);
+  const [selectedEmoji, setSelectedEmoji] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
 
+  //Handle Emoji and show in Description
+  const handleEmojiSelect = (emojiObject) => {
+    setSelectedEmoji(emojiObject.emoji);
+    setIsOpen(false); // Close picker after selection
+    let desctext= desc.concat(emojiObject.emoji)
+    setDesc(desctext)
+  };
+
+  // Fetch Home Settings
   const fetchSettingsForHome = async () => {
     try {
       const response = await axios.get(`${apiUrl}/settings/home`, {
@@ -101,6 +117,7 @@ const HomeScreen = () => {
     }
   };
 
+  //Reel Visible
   useEffect(() => {
     // Reset position when modal opens or closes
     if (videoModalVisible) {
@@ -108,10 +125,30 @@ const HomeScreen = () => {
     }
   }, [videoModalVisible]);
 
+  //ToastSuccess Show
+  const showToasForSuccess = (title:string) => {
+    Toast.show({
+      type: "success",
+      text1: "Sponzy",
+      text2: title,
+    });
+  };
+
+ //ToastFailer Show
+  const showToasForFailur = (title:string) => {
+    Toast.show({
+      type: "error",
+      text1: "Sponzy",
+      text2: title,
+    });
+  };
+
+  //Fetch Home Settings
   useEffect(() => {
     fetchSettingsForHome();
   }, []);
 
+  //Title Move Reel
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -148,49 +185,56 @@ const HomeScreen = () => {
     }
   };
 
+  // Valiadtion Image Video size and extension
   const validateImageBySizeType = (assetsWithType) => {
     console.log("assetsWithType", assetsWithType);
+    let allowedExtensions;
     // Map extensions to MIME types for validation
-    const extensionToMimeType = {
-      png: "image/png",
-      jpeg: "image/jpeg",
-      jpg: "image/jpeg",
-      gif: "image/gif",
-      ief: "image/ief",
-      mp4: "video/mp4",
-      mkv: "audio/x-matroska", // Note: .mkv is typically video, but per request, mapped to audio/x-matroska
-      mp3: "audio/mpeg",
-    };
-    // Allowed extensions
-    const allowedExtensions = [
-      "png",
-      "jpeg",
-      "jpg",
-      "gif",
-      "ief",
-      "mp4",
-      "mkv",
-      "mp3",
-    ];
+    if (settings?.video_encoding == "off") {
+      // Map extensions to MIME types for validation
+      allowedExtensions = [
+        "png",
+        "jpeg",
+        "jpg",
+        "gif",
+        "ief",
+        "mp4",
+        "mkv",
+        "mp3",
+      ];
+    } else {
+      // Allowed extensions
+      allowedExtensions = [
+        "png",
+        "jpeg",
+        "jpg",
+        "gif",
+        "ief",
+        "mp4",
+        "mov",
+        "3gpp",
+        "mpeg",
+        "mkv",
+        "wmv",
+        "avi",
+        "flv",
+        "mp3",
+      ];
+    }
     const validImages = [];
     const inValidMedia = [];
     for (const asset of assetsWithType) {
       const uri = asset.uri;
       const fileName = asset.fileName || uri.split("/").pop();
       const extension = fileName.split(".").pop().toLowerCase();
-      const mimeType = asset.mimeType?.toLowerCase();
-
       // Check file extension and MIME type
-      if (
-        !allowedExtensions.includes(extension) ||
-        (mimeType && !Object.values(extensionToMimeType).includes(mimeType))
-      ) {
+      if (!allowedExtensions.includes(extension)) {
         setLargeFileMessage(
           `${fileName} has an invalid extension. Allowed: ${allowedExtensions.join(
             ", "
           )}.`
         );
-        inValidMedia.push(asset)
+        inValidMedia.push(asset);
         setShowLargeFileModal(true);
         continue;
       }
@@ -201,20 +245,22 @@ const HomeScreen = () => {
           `${fileName} is too large (${asset.fileSize}). Maximum size is ${maxSize}.`
         );
         setLargeFileMessage(
-          `${fileName} is too large (${(asset.fileSize / (1024 * 1024)).toFixed(2)} MB). Maximum size is (${(maxSize / (1024 * 1024)).toFixed(2)} MB).`
+          `${fileName} is too large (${(asset.fileSize / (1024 * 1024)).toFixed(
+            2
+          )} MB). Maximum size is (${(maxSize / (1024 * 1024)).toFixed(2)} MB).`
         );
-        inValidMedia.push(asset)
+        inValidMedia.push(asset);
         setShowLargeFileModal(true);
         continue;
       }
       validImages.push(asset);
     }
     console.log("validImages", validImages);
-    console.log( "inValidMedia",inValidMedia)
-    if(validImages.length > 0)
-    uploadImage(validImages);
+    console.log("inValidMedia", inValidMedia);
+    if (validImages.length > 0) uploadImage(validImages);
   };
 
+  //KB/MB/GB convert to bytes
   const parseMaxFileSizeToBytes = (sizeInput) => {
     const match = sizeInput.match(/^(\d*\.?\d+)\s*(KB|MB|GB)$/i);
     if (!match) {
@@ -234,6 +280,8 @@ const HomeScreen = () => {
         throw new Error("Unsupported unit. Use KB, MB, or GB.");
     }
   };
+
+  //Image video upload
   const uploadImage = async (selectedImageOrDoc) => {
     setIsUploading(true);
     setUploadProgress(0);
@@ -251,10 +299,10 @@ const HomeScreen = () => {
         formData.append(
           "files[]",
           // file.file
-             {
+          {
             uri: file.uri, // e.g., from image picker
             type: file.mimeType,
-            name:name,
+            name: name,
           }
         );
       });
@@ -284,17 +332,13 @@ const HomeScreen = () => {
     }
   };
 
-  //Remove Asset
+  //Remove Image/Video
   const handleRemoveAsset = (asset: SelectedAsset) => {
-    console.log(asset)
-    deleteImage(asset?.name)
-    // setSelectedAssets((prevAssets) =>
-    //   prevAssets.filter((item) => item.uri !== asset.uri)
-    // );
+    console.log(asset);
+    deleteImage(asset?.name);
   };
 
-  
-  // Delete Image API
+  // Delete Image/Video API
   const deleteImage = async (medianame: string) => {
     try {
       const response = await axios.post(
@@ -308,18 +352,18 @@ const HomeScreen = () => {
         }
       );
       if (response.data.success) {
-       console.log(response.data?.message)
-       Toast.show({
-        type: 'success',
-        text1: response.data?.message,
-      });
-         setSelectedAssets((prevAssets) =>
+        console.log(response.data?.message);
+        Toast.show({
+          type: "success",
+          text1: response.data?.message,
+        });
+        setSelectedAssets((prevAssets) =>
           prevAssets.filter((item) => item.name !== medianame)
         );
       }
-       // setSelectedAssets((prevAssets) =>
-    //   prevAssets.filter((item) => item.uri !== asset.uri)
-    // );
+      // setSelectedAssets((prevAssets) =>
+      //   prevAssets.filter((item) => item.uri !== asset.uri)
+      // );
     } catch (error) {
       console.error("Delete error:", error);
       return false;
@@ -335,6 +379,7 @@ const HomeScreen = () => {
       });
 
       if (!result.canceled) {
+        console.log(result.assets[0].file);
         const newZipFile: ZipFile = {
           uri: result.assets[0].uri,
           name: result.assets[0].name,
@@ -342,7 +387,7 @@ const HomeScreen = () => {
           mimeType: result.assets[0].mimeType || "application/zip",
         };
         setZipFiles((prev) => [...prev, newZipFile]);
-        // console.log("Selected ZIP file:", newZipFile);
+        setOriginalZip(result.assets[0].file);
       }
     } catch (error) {
       console.error("Error picking ZIP file:", error);
@@ -352,6 +397,71 @@ const HomeScreen = () => {
   //Remove zip file
   const removeZipFile = (uri: string) => {
     setZipFiles((prev) => prev.filter((file) => file.uri !== uri));
+  };
+
+  // handle Price with Number only
+  const handlePriceChange = (text) => {
+    // Allows only digits
+    if (/^\d*$/.test(text)) {
+      console.log(text);
+      setPrice(text);
+    }
+  };
+
+  //Share Post
+  const sharePost = async () => {
+    const names = selectedAssets.map((item) => ({ file: item.name }));
+    const postData = {
+      description: desc,
+      title: title || "",
+      locked: lock === true ? "yes" : "no",
+      price: price || "",
+      "fileuploader-list-photo": JSON.stringify(names),
+      zip: originalZip || "",
+    };
+    console.log("postData", postData);
+
+    // Make API call to login endpoint
+    const response = await axios.post(`${apiUrl}/updates`, postData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log("Response:", response.data);
+
+    if (response.data?.success === true) {
+      if (response.data?.pending === true) {
+        setUploadedMessage(response.data?.message);
+        if (response.data?.encode === true) {
+          setShowVideoOnTheWay(true);
+        } else {
+          setPublicationMessageShow(true);
+        }
+        setDesc("");
+        setSelectedAssets([]);
+        setZipFiles([]);
+        setOriginalZip([]);
+        setPriceVisible(false);
+        setPrice("");
+        setTitleVisible(false);
+        setTitle("");
+        console.log(selectedAssets);
+      } else {
+        setDesc("");
+        setSelectedAssets([]);
+        setZipFiles([]);
+        setOriginalZip([]);
+        setPriceVisible(false);
+        setPrice("");
+        setTitleVisible(false);
+        setTitle("");
+        console.log(selectedAssets);
+      }
+    } else {
+      let title = response.data.errors;
+      showToasForFailur(title);
+    }
   };
 
   return (
@@ -370,9 +480,134 @@ const HomeScreen = () => {
             ]}
           >
             <ProfileWithSearchBarComponents
-              value={profileInput}
-              onChangeText={setProfileInput}
+              value={desc}
+              onChangeText={setDesc}
             />
+          </View>
+          {priceVisible && (
+            <View
+              style={[
+                styles.inputContainer,
+                theme.card,
+                { borderColor: theme.border.borderColor },
+              ]}
+            >
+              <Feather
+                name="dollar-sign"
+                size={20}
+                color="#888b8f"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                ref={priceRef}
+                style={[styles.inputWithIcon, theme.text, theme.card]}
+                placeholder="Price"
+                placeholderTextColor={String(theme.text.color) + "99"}
+                value={price}
+                keyboardType="numeric"
+                onChangeText={handlePriceChange}
+                editable
+              />
+              {price && !/^\d+$/.test(price) && (
+                <Text style={{ color: "red" }}>Please enter only digits.</Text>
+              )}
+              <View></View>
+            </View>
+          )}
+          {titleVisible && (
+            <View
+              style={[
+                styles.inputContainer,
+                theme.card,
+                { borderColor: theme.border.borderColor, marginVertical: 10 },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="format-font"
+                size={20}
+                color="#888b8f"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={[styles.inputWithIcon, theme.text, theme.card]}
+                placeholder="Title"
+                ref={titleRef}
+                placeholderTextColor={String(theme.text.color) + "99"}
+                value={title}
+                onChangeText={setTitle}
+                editable
+              />
+              <View></View>
+            </View>
+          )}
+          <View>
+            {/* Progress Bar for Uploading */}
+            {isUploading && (
+              <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
+                {/* <Text style={[theme.text, { marginBottom: 5 }]}>
+                  Uploading: {Math.round(uploadProgress * 100)}%
+                </Text> */}
+                <Progress.Bar
+                  progress={uploadProgress}
+                  width={null}
+                  height={8}
+                  color={theme.primaryColor.color}
+                  unfilledColor="#ccc"
+                  borderWidth={0}
+                  borderRadius={4}
+                />
+              </View>
+            )}
+
+            {/* Display images and videos */}
+            <View style={{ marginVertical: 10 }}>
+              <MediaGrid
+                assets={selectedAssets}
+                onRemoveAsset={handleRemoveAsset}
+                maxItems={9}
+                columns={3}
+                spacing={8}
+                padding={20}
+              />
+            </View>
+
+            {/* Display ZIP files */}
+            {zipFiles.length > 0 && (
+              <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
+                {zipFiles.map((file, index) => (
+                  <View
+                    key={file.uri}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      backgroundColor: theme.card.backgroundColor,
+                      padding: 10,
+                      marginVertical: 5,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[{ color: theme.text.color }]}
+                        numberOfLines={1}
+                      >
+                        {file.name}
+                      </Text>
+                      <Text style={[{ color: theme.text.color, fontSize: 12 }]}>
+                        {(file.size / 1024).toFixed(2)} KB
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => removeZipFile(file.uri)}
+                      style={styles.removeButton}
+                    >
+                      <Feather name="x" size={14} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
           <View
             style={{
@@ -395,6 +630,44 @@ const HomeScreen = () => {
               />
             </TouchableOpacity>
             <TouchableOpacity
+              onPress={() => {
+                if (priceRef.current) {
+                  priceRef.current.focus();
+                }
+                setPriceVisible(!priceVisible);
+              }}
+            >
+              <AntDesign name="tago" size={20} color={theme.iconColor.color} />
+            </TouchableOpacity>
+            {lock ? (
+              <TouchableOpacity onPress={() => setLock(!lock)}>
+                <Feather name="lock" size={20} color={theme.iconColor.color} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setLock(!lock)}>
+                <Feather
+                  name="unlock"
+                  size={20}
+                  color={theme.iconColor.color}
+                />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => {
+                if (titleRef.current) {
+                  titleRef.current.focus();
+                }
+                setTitleVisible(!titleVisible);
+              }}
+            >
+              <MaterialCommunityIcons
+                name="format-font"
+                size={20}
+                color={theme.iconColor.color}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={async () => {
                 let result = await ImagePicker.launchImageLibraryAsync({
                   mediaTypes: ImagePicker.MediaTypeOptions.Videos,
@@ -409,75 +682,21 @@ const HomeScreen = () => {
             >
               <Feather name="video" size={20} color={theme.iconColor.color} />
             </TouchableOpacity>
-            <Feather name="paperclip" size={20} color={theme.iconColor.color} />
-            <Feather name="lock" size={20} color={theme.iconColor.color} />
-          </View>
-          {/* Progress Bar for Uploading */}
-          {isUploading && (
-            <View style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
-              <Text style={[theme.text, { marginBottom: 5 }]}>
-                Uploading: {Math.round(uploadProgress * 100)}%
-              </Text>
-              <Progress.Bar
-                progress={uploadProgress}
-                width={null}
-                height={8}
-                color={theme.primaryColor.color}
-                unfilledColor="#ccc"
-                borderWidth={0}
-                borderRadius={4}
+            <TouchableOpacity onPress={() => setIsOpen(true)}>
+              <MaterialIcons
+                name="insert-emoticon"
+                size={20}
+                color={theme.iconColor.color}
               />
-            </View>
-          )}
-
-          {/* Display images and videos */}
-          <MediaGrid
-            assets={selectedAssets}
-            onRemoveAsset={handleRemoveAsset}
-            maxItems={9}
-            columns={3}
-            spacing={8}
-            padding={20}
-          />
-
-          {/* Display ZIP files */}
-          {zipFiles.length > 0 && (
-            <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
-              {zipFiles.map((file, index) => (
-                <View
-                  key={file.uri}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    backgroundColor: theme.card.backgroundColor,
-                    padding: 10,
-                    marginVertical: 5,
-                    borderRadius: 8,
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[{ color: theme.text.color }]}
-                      numberOfLines={1}
-                    >
-                      {file.name}
-                    </Text>
-                    <Text style={[{ color: theme.text.color, fontSize: 12 }]}>
-                      {(file.size / 1024).toFixed(2)} KB
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => removeZipFile(file.uri)}
-                    style={styles.removeButton}
-                  >
-                    <Feather name="x" size={14} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
+            </TouchableOpacity>
+            <EmojiPicker
+              open={isOpen}
+              onClose={() => setIsOpen(false)}
+              onEmojiSelected={handleEmojiSelect}
+              enableSearchBar // Optional: adds search functionality
+              categoryPosition="top" // Optional: customize category tabs position
+            />
+          </View>
           <View
             style={{
               width: "100%",
@@ -493,28 +712,29 @@ const HomeScreen = () => {
               style={[
                 styles.publishButton,
                 theme.button,
-                { borderRadius: 20, opacity: profileInput.trim() ? 1 : 0.5 },
+                { borderRadius: 20, opacity: desc ? 1 : 0.5 },
               ]}
               onPress={() => {
+                sharePost();
                 // Example: push a new post to postData
-                const newPost: PostItem = {
-                  id: postData.length + 1,
-                  avatar_image: "https://placehold.co/60x60", // Placeholder
-                  description: profileInput,
-                  username: "username", // Placeholder
-                  timeduration: new Date().toLocaleTimeString(), // Example time
-                  image: selectedAssets
-                    .filter((a) => a.type === "image")
-                    .map((a) => a.uri),
-                  video: selectedAssets
-                    .filter((a) => a.type === "video")
-                    .map((a) => a.uri),
-                  zipFiles: zipFiles,
-                  isLiked: true,
-                  totalLike: 10,
-                  totalComments: 100,
-                };
-                setPostData((prev) => [newPost, ...prev]);
+                // const newPost: PostItem = {
+                //   id: postData.length + 1,
+                //   avatar_image: "https://placehold.co/60x60", // Placeholder
+                //   description: profileInput,
+                //   username: "username", // Placeholder
+                //   timeduration: new Date().toLocaleTimeString(), // Example time
+                //   image: selectedAssets
+                //     .filter((a) => a.type === "image")
+                //     .map((a) => a.uri),
+                //   video: selectedAssets
+                //     .filter((a) => a.type === "video")
+                //     .map((a) => a.uri),
+                //   zipFiles: zipFiles,
+                //   isLiked: true,
+                //   totalLike: 10,
+                //   totalComments: 100,
+                // };
+                // setPostData((prev) => [newPost, ...prev]);
                 // console.log("selectedasset", selectedAssets);
                 // console.log("zip file", zipFiles);
                 // if (selectedAssets.length > 0) {
@@ -524,16 +744,30 @@ const HomeScreen = () => {
                 //   uploadImage(zipFiles);
                 // }
 
-                setProfileInput("");
-                setSelectedAssets([]);
-                setZipFiles([]);
+                // setProfileInput("");
+                // setSelectedAssets([]);
+                // setZipFiles([]);
               }}
-              disabled={!profileInput.trim()}
+              // disabled={!desc.trim()}
             >
               <Text style={styles.publishButtonText}>Publish</Text>
             </TouchableOpacity>
           </View>
         </View>
+        {publicationMessageShow && (
+          <View
+            style={{
+              backgroundColor: "#7889e8",
+              padding: 10,
+              marginHorizontal: 20,
+            }}
+          >
+            <Text style={[styles.subTitle, { color: "white" }]}>
+              {uploadedMessage?.text}
+              {uploadedMessage?.link_text}
+            </Text>
+          </View>
+        )}
         <FlatList
           data={postData}
           renderItem={({ item }) => (
@@ -546,7 +780,7 @@ const HomeScreen = () => {
           maxToRenderPerBatch={10}
         />
       </View>
-      
+
       {/* Large File Size Modal */}
       <Modal
         visible={showLargeFileModal}
@@ -554,7 +788,14 @@ const HomeScreen = () => {
         animationType="fade"
         onRequestClose={() => setShowLargeFileModal(false)}
       >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
           <View
             style={{
               backgroundColor: theme.card.backgroundColor,
@@ -570,24 +811,22 @@ const HomeScreen = () => {
                 setLargeFileMessage("");
               }}
               style={{
-                padding:20,
-               // backgroundColor: "red",
+                padding: 20,
+                // backgroundColor: "red",
                 borderRadius: 25,
                 width: 50,
                 height: 50,
                 justifyContent: "center",
                 alignItems: "center",
-                borderColor: 'red',
-                borderStyle:'solid',
-                borderWidth:'medium'
+                borderColor: "red",
+                borderStyle: "solid",
+                borderWidth: "medium",
               }}
             >
               <Feather name="x" size={20} color="red" />
             </TouchableOpacity>
             <Text style={styles.oops}>Oops...</Text>
-            <Text style={styles.largeFileName}>
-                      {largeFileMessage}
-            </Text>
+            <Text style={styles.largeFileName}>{largeFileMessage}</Text>
             <TouchableOpacity
               onPress={() => {
                 setShowLargeFileModal(false);
@@ -600,7 +839,82 @@ const HomeScreen = () => {
                 paddingVertical: 10,
               }}
             >
-              <Text style={[theme.text, { color: theme.button.color, fontWeight: "bold" }]}>
+              <Text
+                style={[
+                  theme.text,
+                  { color: theme.button.color, fontWeight: "bold" },
+                ]}
+              >
+                OK
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Video on the way */}
+      <Modal
+        visible={showVideoOnTheWay}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowVideoOnTheWay(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.card.backgroundColor,
+              borderRadius: 10,
+              padding: 20,
+              width: "80%",
+              alignItems: "center",
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => {
+                setShowVideoOnTheWay(false);
+              }}
+              style={{
+                padding: 20,
+                // backgroundColor: "red",
+                borderRadius: 25,
+                width: 50,
+                height: 50,
+                justifyContent: "center",
+                alignItems: "center",
+                borderColor: "red",
+                borderStyle: "solid",
+                borderWidth: "medium",
+              }}
+            >
+              <Feather name="x" size={20} color="red" />
+            </TouchableOpacity>
+            <Text style={styles.oops}>{uploadedMessage?.title}</Text>
+            <Text style={styles.largeFileName}>{uploadedMessage?.text}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setShowVideoOnTheWay(false);
+                setVideoMessage("");
+              }}
+              style={{
+                backgroundColor: theme.button.backgroundColor,
+                borderRadius: 20,
+                paddingHorizontal: 30,
+                paddingVertical: 10,
+              }}
+            >
+              <Text
+                style={[
+                  theme.text,
+                  { color: theme.button.color, fontWeight: "bold" },
+                ]}
+              >
                 OK
               </Text>
             </TouchableOpacity>
@@ -813,6 +1127,7 @@ const HomeScreen = () => {
           </View>
         </View>
       </Modal>
+
       {/* Dropdown Modal */}
       <Modal
         visible={showDropdown}

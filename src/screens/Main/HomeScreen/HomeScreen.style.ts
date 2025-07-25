@@ -142,7 +142,23 @@ const styles = StyleSheet.create({
     fontSize:30,
     textAlign:'center',
     marginVertical:10
-  }
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal:20
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  inputWithIcon: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
 });
 
 export default styles;

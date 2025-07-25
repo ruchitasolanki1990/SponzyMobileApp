@@ -5,7 +5,7 @@ import { store, persistor } from './src/redux/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useFonts, Barlow_400Regular, Barlow_700Bold } from '@expo-google-fonts/barlow';
 import { Text, View, ActivityIndicator } from 'react-native';
-
+import Toast from 'react-native-toast-message';
 // Custom global Text component to apply Barlow font
 const AppText = (props: any) => <Text {...props} style={[{ fontFamily: 'Barlow_400Regular' }, props.style]} />;
 
@@ -34,6 +34,7 @@ export default function App() {
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor} >
         <AppNavigator />
+        <Toast />
       </PersistGate>
     </Provider>
   );
