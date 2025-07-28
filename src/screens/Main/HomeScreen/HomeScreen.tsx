@@ -10,8 +10,8 @@ import {
   PanResponder,
   Animated,
 } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../../redux/store";
+import {  useSelector } from "react-redux";
+import {  RootState } from "../../../redux/store";
 import { ThemeContext } from "../../../constants/Themes";
 import styles from "./HomeScreen.style";
 import ProfileWithSearchBarComponents from "@/src/components/HomePageComponent/ProfileWithSearchBarComponents";
@@ -25,7 +25,8 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import axios from "axios";
 import * as Progress from "react-native-progress";
 import Toast from "react-native-toast-message";
-import EmojiPicker from 'rn-emoji-keyboard';
+import EmojiPicker from "rn-emoji-keyboard";
+import { useFocusEffect } from "@react-navigation/native";
 
 // Define the type for an asset, extending ImagePickerAsset
 interface SelectedAsset extends ImagePicker.ImagePickerAsset {
@@ -38,25 +39,54 @@ interface ZipFile {
   size: number;
   mimeType: string;
 }
-// Post item interface for feed/posts
-interface PostItem {
-  id: number;
-  avatar_image: string;
-  description: string;
-  username: string;
-  timeduration: string;
-  image: string[];
-  video: string[];
-  zipFiles: ZipFile[];
-  isLiked: boolean;
-  totalLike: number;
-  totalComments: number;
+
+interface Comment {
+  // Define comment structure if available
+  // For now, assuming it's an empty array
 }
+
+interface Creator {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string;
+  cover: string;
+  verified_id: 'yes' | 'no';
+  plan: string;
+  free_subscription: 'yes' | 'no';
+  hide_name: 'yes' | 'no';
+  allow_comments: number;
+}
+
+interface Media {
+  // Define media structure based on the actual media object content
+  // Add specific properties when media structure is provided
+  [key: string]: any;
+}
+
+interface Post {
+  comments: Comment[];
+  creator: Creator;
+  date: string;
+  description: string;
+  fixed_post: '0' | '1';
+  id: number;
+  likes: any[]; // Replace 'any' with specific like structure if available
+  likes_extras: number;
+  locked: 'yes' | 'no';
+  media: Media[];
+  price: string;
+  scheduled_date: string;
+  status: 'active' | string; // Add other possible status values if known
+  title: string | null;
+  video_views: number;
+}
+
 
 const HomeScreen = () => {
   const theme = useContext(ThemeContext);
   const [desc, setDesc] = useState("");
-  const [postData, setPostData] = useState<PostItem[]>([]);
+  const [postData, setPostData] = useState<Post[]>([]);
   const [selectedAssets, setSelectedAssets] = useState<SelectedAsset[]>([]);
   const [zipFiles, setZipFiles] = useState<ZipFile[]>([]);
   const [videoModalVisible, setVideoModalVisible] = useState(false);
@@ -92,19 +122,21 @@ const HomeScreen = () => {
   const titleRef = useRef(null);
   const [selectedEmoji, setSelectedEmoji] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [metaForPost,setMetaForPost]= useState([])
+  const [lastRecordIndex,setLastRecordIndex]= useState()
 
   //Handle Emoji and show in Description
   const handleEmojiSelect = (emojiObject) => {
     setSelectedEmoji(emojiObject.emoji);
     setIsOpen(false); // Close picker after selection
-    let desctext= desc.concat(emojiObject.emoji)
-    setDesc(desctext)
+    let desctext = desc.concat(emojiObject.emoji);
+    setDesc(desctext);
   };
 
   // Fetch Home Settings
   const fetchSettingsForHome = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/settings/home`, {
+      const response = await axios.get(`${apiUrl}/settings/get/home`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -117,6 +149,47 @@ const HomeScreen = () => {
     }
   };
 
+  // Fetch Post For Home Settings
+  const fetchPostForHome = async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/home`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.data.success) {
+        setPostData(response.data.data)
+        setMetaForPost(response.data?.meta)
+        setLastRecordIndex(response.data?.meta?.to)
+        
+      }
+    } catch (error) {
+      console.log("Error", "Failed to load categories");
+    }
+  };
+
+    // Fetch Post For Home Settings
+    const fetchPostForHomeUpdate = async () => {
+    console.log("postdata length",postData.length)
+      try {
+        const response = await axios.get(`${apiUrl}/user/updates?skip=${postData.length}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.data.success) {
+          let newPosts=response.data.data
+        
+         setLastRecordIndex(response.data?.meta?.to)
+          setPostData((prevPosts) => ([...prevPosts, ...newPosts]));
+         
+        }else{
+          console.log(response.data)
+        }
+      } catch (error) {
+        console.log("Error", "Failed to load categories");
+      }
+    };
   //Reel Visible
   useEffect(() => {
     // Reset position when modal opens or closes
@@ -126,7 +199,7 @@ const HomeScreen = () => {
   }, [videoModalVisible]);
 
   //ToastSuccess Show
-  const showToasForSuccess = (title:string) => {
+  const showToasForSuccess = (title: string) => {
     Toast.show({
       type: "success",
       text1: "Sponzy",
@@ -134,8 +207,8 @@ const HomeScreen = () => {
     });
   };
 
- //ToastFailer Show
-  const showToasForFailur = (title:string) => {
+  //ToastFailer Show
+  const showToasForFailur = (title: string) => {
     Toast.show({
       type: "error",
       text1: "Sponzy",
@@ -146,7 +219,21 @@ const HomeScreen = () => {
   //Fetch Home Settings
   useEffect(() => {
     fetchSettingsForHome();
+    fetchPostForHome()
   }, []);
+
+ // useFocusEffect to fetch or process data when the screen is focused
+ useFocusEffect(
+  React.useCallback(() => {
+    fetchPostForHome();
+
+    // Optional cleanup function (runs when screen loses focus)
+    return () => {
+      console.log('Screen is unfocused, cleaning up...');
+      // Perform cleanup (e.g., cancel requests, clear timers)
+    };
+  }, []) // Empty dependency array means it runs on focus/unfocus
+);
 
   //Title Move Reel
   const panResponder = useRef(
@@ -187,7 +274,6 @@ const HomeScreen = () => {
 
   // Valiadtion Image Video size and extension
   const validateImageBySizeType = (assetsWithType) => {
-    console.log("assetsWithType", assetsWithType);
     let allowedExtensions;
     // Map extensions to MIME types for validation
     if (settings?.video_encoding == "off") {
@@ -255,8 +341,6 @@ const HomeScreen = () => {
       }
       validImages.push(asset);
     }
-    console.log("validImages", validImages);
-    console.log("inValidMedia", inValidMedia);
     if (validImages.length > 0) uploadImage(validImages);
   };
 
@@ -289,12 +373,11 @@ const HomeScreen = () => {
       const formData = new FormData();
       // mutiple file upload using one api
       selectedImageOrDoc.forEach((file, index) => {
-        console.log("==", file);
         let name =
           file.mimeType === "application/x-zip-compressed"
             ? file.name
             : file.fileName;
-        console.log("file====>", file.file);
+
 
         formData.append(
           "files[]",
@@ -320,9 +403,7 @@ const HomeScreen = () => {
       });
       // Adjust the mapping based on your API response structure
       if (response.data.success) {
-        console.log(response.data.data);
-
-        setSelectedAssets(response.data.data);
+          setSelectedAssets(response.data.data);
       }
     } catch (error) {
       console.log(error);
@@ -334,8 +415,7 @@ const HomeScreen = () => {
 
   //Remove Image/Video
   const handleRemoveAsset = (asset: SelectedAsset) => {
-    console.log(asset);
-    deleteImage(asset?.name);
+      deleteImage(asset?.name);
   };
 
   // Delete Image/Video API
@@ -352,7 +432,6 @@ const HomeScreen = () => {
         }
       );
       if (response.data.success) {
-        console.log(response.data?.message);
         Toast.show({
           type: "success",
           text1: response.data?.message,
@@ -379,7 +458,6 @@ const HomeScreen = () => {
       });
 
       if (!result.canceled) {
-        console.log(result.assets[0].file);
         const newZipFile: ZipFile = {
           uri: result.assets[0].uri,
           name: result.assets[0].name,
@@ -387,7 +465,7 @@ const HomeScreen = () => {
           mimeType: result.assets[0].mimeType || "application/zip",
         };
         setZipFiles((prev) => [...prev, newZipFile]);
-        setOriginalZip(result.assets[0].file);
+        // setOriginalZip(result.assets[0].file);
       }
     } catch (error) {
       console.error("Error picking ZIP file:", error);
@@ -403,64 +481,74 @@ const HomeScreen = () => {
   const handlePriceChange = (text) => {
     // Allows only digits
     if (/^\d*$/.test(text)) {
-      console.log(text);
       setPrice(text);
     }
   };
 
   //Share Post
   const sharePost = async () => {
-    const names = selectedAssets.map((item) => ({ file: item.name }));
-    const postData = {
-      description: desc,
-      title: title || "",
-      locked: lock === true ? "yes" : "no",
-      price: price || "",
-      "fileuploader-list-photo": JSON.stringify(names),
-      zip: originalZip || "",
-    };
-    console.log("postData", postData);
+    try {
+      const names = selectedAssets.map((item) => ({ file: item.name }));
+      // Prepare FormData
+      const formData = new FormData();
+      // Append normal data
+      formData.append("description", desc); // Example normal data
+      formData.append("title", title); // Example normal data
+      formData.append("locked", lock === true ? "yes" : "");
+      formData.append("price", price);
+      formData.append("fileuploader-list-photo", JSON.stringify(names));
 
-    // Make API call to login endpoint
-    const response = await axios.post(`${apiUrl}/updates`, postData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    console.log("Response:", response.data);
-
-    if (response.data?.success === true) {
-      if (response.data?.pending === true) {
-        setUploadedMessage(response.data?.message);
-        if (response.data?.encode === true) {
-          setShowVideoOnTheWay(true);
-        } else {
-          setPublicationMessageShow(true);
-        }
-        setDesc("");
-        setSelectedAssets([]);
-        setZipFiles([]);
-        setOriginalZip([]);
-        setPriceVisible(false);
-        setPrice("");
-        setTitleVisible(false);
-        setTitle("");
-        console.log(selectedAssets);
-      } else {
-        setDesc("");
-        setSelectedAssets([]);
-        setZipFiles([]);
-        setOriginalZip([]);
-        setPriceVisible(false);
-        setPrice("");
-        setTitleVisible(false);
-        setTitle("");
-        console.log(selectedAssets);
+      // // Append file
+      if (zipFiles.length > 0) {
+        formData.append("zip", {
+          uri: zipFiles[0].uri,
+          name: zipFiles[0].name,
+          type: zipFiles[0].mimeType || "application/zip", // Ensure correct MIME type
+        });
       }
-    } else {
-      let title = response.data.errors;
-      showToasForFailur(title);
+
+      // Make API call to login endpoint
+      const response = await axios.post(`${apiUrl}/updates`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.data?.success === true) {
+        if (response.data?.pending === true) {
+          setUploadedMessage(response.data?.message);
+          if (response.data?.encode === true) {
+            setShowVideoOnTheWay(true);
+          } else {
+            setPublicationMessageShow(true);
+          }
+          setDesc("");
+          setSelectedAssets([]);
+          setZipFiles([]);
+          setOriginalZip([]);
+          setPriceVisible(false);
+          setPrice("");
+          setTitleVisible(false);
+          setTitle("");
+
+          setLock(true);
+        } else {
+          setDesc("");
+          setSelectedAssets([]);
+          setZipFiles([]);
+          setOriginalZip([]);
+          setPriceVisible(false);
+          setPrice("");
+          setTitleVisible(false);
+          setTitle("");
+          setLock(true);
+        }
+      } else {
+        let title = response.data.errors;
+        showToasForFailur(title);
+      }
+    } catch (error) {
+      console.log("eroro", error);
     }
   };
 
@@ -619,10 +707,10 @@ const HomeScreen = () => {
               paddingVertical: 10,
             }}
           >
-            <TouchableOpacity onPress={pickImage}>
+            <TouchableOpacity style={{ padding: 5 }} onPress={pickImage}>
               <Feather name="image" size={20} color={theme.iconColor.color} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={pickZipFile}>
+            <TouchableOpacity style={{ padding: 5 }} onPress={pickZipFile}>
               <Feather
                 name="file-text"
                 size={20}
@@ -630,6 +718,7 @@ const HomeScreen = () => {
               />
             </TouchableOpacity>
             <TouchableOpacity
+              style={{ padding: 5 }}
               onPress={() => {
                 if (priceRef.current) {
                   priceRef.current.focus();
@@ -640,11 +729,21 @@ const HomeScreen = () => {
               <AntDesign name="tago" size={20} color={theme.iconColor.color} />
             </TouchableOpacity>
             {lock ? (
-              <TouchableOpacity onPress={() => setLock(!lock)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setLock(!lock);
+                }}
+                style={{ padding: 5 }}
+              >
                 <Feather name="lock" size={20} color={theme.iconColor.color} />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={() => setLock(!lock)}>
+              <TouchableOpacity
+                style={{ padding: 5 }}
+                onPress={() => {
+                  setLock(!lock);
+                }}
+              >
                 <Feather
                   name="unlock"
                   size={20}
@@ -660,6 +759,7 @@ const HomeScreen = () => {
                 }
                 setTitleVisible(!titleVisible);
               }}
+              style={{ padding: 5 }}
             >
               <MaterialCommunityIcons
                 name="format-font"
@@ -668,6 +768,7 @@ const HomeScreen = () => {
               />
             </TouchableOpacity>
             <TouchableOpacity
+              style={{ padding: 5 }}
               onPress={async () => {
                 let result = await ImagePicker.launchImageLibraryAsync({
                   mediaTypes: ImagePicker.MediaTypeOptions.Videos,
@@ -682,7 +783,10 @@ const HomeScreen = () => {
             >
               <Feather name="video" size={20} color={theme.iconColor.color} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIsOpen(true)}>
+            <TouchableOpacity
+              style={{ padding: 5 }}
+              onPress={() => setIsOpen(true)}
+            >
               <MaterialIcons
                 name="insert-emoticon"
                 size={20}
@@ -776,8 +880,8 @@ const HomeScreen = () => {
             </View>
           )}
           keyExtractor={(item) => item.id.toString()}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
+          onEndReached={()=> fetchPostForHomeUpdate()}
+           onEndReachedThreshold={0.5}
         />
       </View>
 
@@ -820,7 +924,7 @@ const HomeScreen = () => {
                 alignItems: "center",
                 borderColor: "red",
                 borderStyle: "solid",
-                borderWidth: "medium",
+                borderWidth: 1,
               }}
             >
               <Feather name="x" size={20} color="red" />
@@ -890,7 +994,7 @@ const HomeScreen = () => {
                 alignItems: "center",
                 borderColor: "red",
                 borderStyle: "solid",
-                borderWidth: "medium",
+                borderWidth: 1,
               }}
             >
               <Feather name="x" size={20} color="red" />

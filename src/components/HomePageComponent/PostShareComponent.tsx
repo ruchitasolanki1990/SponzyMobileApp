@@ -2,78 +2,31 @@ import {
   View,
   Text,
   Image,
-  ScrollView,
   TouchableOpacity,
   Modal,
   Linking,
-  Dimensions,
 } from "react-native";
 import React, { useContext, useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import { ThemeContext } from "@/src/constants/Themes";
 import { RootState } from "@/src/redux/store";
-import {
-  AntDesign,
-  Feather,
-  FontAwesome,
-  FontAwesome5,
-  Ionicons,
-} from "@expo/vector-icons";
+import { AntDesign, Feather, FontAwesome, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Video, ResizeMode } from "expo-av";
-// Remove import of GestureRecognizer
-// import GestureRecognizer from 'react-native-swipe-gestures';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  runOnJS,
-} from 'react-native-reanimated';
-// Remove Swiper import
-// import Swiper from 'react-native-swiper';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-const { width, height } = Dimensions.get('window');
+
 const PostShareComponent = (props: any) => {
   const { post } = props;
   const theme = useContext(ThemeContext);
   const user = useSelector((state: RootState) => state.userAuth.user);
-  const [imageViewerVisible, setImageViewerVisible] = useState(false);
-  const [videoViewerVisible, setVideoViewerVisible] = useState(false);
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [currentVideo, setCurrentVideo] = useState<string | null>(null);
   const [fullScreenIndex, setFullScreenIndex] = useState<number | null>(null);
   const [fullScreenVisible, setFullScreenVisible] = useState(false);
   const videoModalRef = useRef<Video>(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(true);
   const primaryColor = theme.primaryColor?.color || "#1976d2";
   const allMedia = [...(post.image || []), ...(post.video || [])];
-  const [imageIndex, setImageIndex] = useState<number>(0);
-
-  // Reanimated shared value for swipe
-  const translateX = useSharedValue(0);
-
-  // Animated style for image
-  const animatedImageStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  // Play/pause handler for modal video
-  const handleToggleVideoPlay = async () => {
-    if (videoModalRef.current) {
-      const status = await videoModalRef.current.getStatusAsync();
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await videoModalRef.current.pauseAsync();
-          setIsVideoPlaying(false);
-        } else {
-          await videoModalRef.current.playAsync();
-          setIsVideoPlaying(true);
-        }
-      }
-    }
-  };
 
   // Add state for play/pause in full-screen video
-  const [isFullScreenVideoPlaying, setIsFullScreenVideoPlaying] = useState(true);
+  const [isFullScreenVideoPlaying, setIsFullScreenVideoPlaying] =
+    useState(true);
   const fullScreenVideoRef = useRef<Video>(null);
 
   // Function to toggle play/pause and control the video
@@ -92,11 +45,39 @@ const PostShareComponent = (props: any) => {
     }
   };
 
-  // Remove swipeConfig
-  // const swipeConfig = {
-  //   velocityThreshold: 0.3,
-  //   directionalOffsetThreshold: 80,
-  // };
+  // Function to get relative time (e.g., "1 hr ago", "2 days ago")
+  const getRelativeTime = (dateString: string): string => {
+    try {
+      const inputDate = new Date(dateString);
+      const currentDate = new Date();
+
+      // Calculate the time difference in milliseconds
+      const timeDiff = currentDate.getTime() - inputDate.getTime();
+      const secondsDiff = Math.floor(timeDiff / 1000);
+      const minutesDiff = Math.floor(secondsDiff / 60);
+      const hoursDiff = Math.floor(minutesDiff / 60);
+      const daysDiff = Math.floor(hoursDiff / 24);
+      const monthsDiff = Math.floor(daysDiff / 30); // Approximate
+      const yearsDiff = Math.floor(daysDiff / 365); // Approximate
+
+      if (yearsDiff > 0) {
+        return yearsDiff === 1 ? "1 year ago" : `${yearsDiff} years ago`;
+      } else if (monthsDiff > 0) {
+        return monthsDiff === 1 ? "1 month ago" : `${monthsDiff} months ago`;
+      } else if (daysDiff > 0) {
+        return daysDiff === 1 ? "1 day ago" : `${daysDiff} days ago`;
+      } else if (hoursDiff > 0) {
+        return hoursDiff === 1 ? "1 hr ago" : `${hoursDiff} hrs ago`;
+      } else if (minutesDiff > 0) {
+        return minutesDiff === 1 ? "1 min ago" : `${minutesDiff} mins ago`;
+      } else {
+        return "Just now";
+      }
+    } catch (error) {
+      console.error("Invalid date format:", error);
+      return "Unknown time";
+    }
+  };
 
   return (
     <>
@@ -106,32 +87,32 @@ const PostShareComponent = (props: any) => {
             width: "100%",
             height: 100,
             flexDirection: "row",
-            paddingHorizontal: 20,
+            padding:20
           },
         ]}
       >
         <View
           style={{
-            width: "25%",
+            width: "20%",
             height: 100,
-            justifyContent: "center",
-            alignItems: "center"
+            marginRight:5
           }}
         >
           <Image
-            source={user?.avatar_image ? { uri: user.avatar_image } : require("../../../assets/img/userprofile.png")}
+            source={{ uri: post.creator?.avatar }}
             style={{ width: 60, height: 60, borderRadius: 30 }}
           />
         </View>
-        <View style={{ width: "55%", height: 100, marginTop: 15 }}>
+        <View style={{ width: "60%", height: 100,justifyContent:"flex-start",display:"flex"}}>
           <Text
             style={[theme.primaryColor, { fontSize: 18, fontWeight: "bold" }]}
           >
-            {user?.name || "User"}
+            {post.creator?.name}
+            <MaterialIcons name="verified" size={20} color={primaryColor} />
             <Text
               style={[theme.mute_text, { fontSize: 12, fontWeight: "normal" }]}
             >
-              @{user?.username || "user"}
+              @{post.creator?.username}
             </Text>
           </Text>
           <Text
@@ -140,8 +121,14 @@ const PostShareComponent = (props: any) => {
               { fontSize: 12, fontWeight: "normal", marginTop: 5 },
             ]}
           >
-            {new Date().toLocaleTimeString()}
-            <Feather name="lock" size={12} color={theme.mute_text.color} />
+            <Text>
+              {getRelativeTime(post?.date)}{"  "}
+            </Text>
+            {post?.locked === "yes" ? (
+              <Feather name="lock" size={12} color={theme.mute_text.color} />
+            ) : (
+              <Feather name="unlock" size={12} color={theme.mute_text.color} />
+            )}
           </Text>
         </View>
         <View
@@ -186,7 +173,7 @@ const PostShareComponent = (props: any) => {
             <TouchableOpacity
               key={post.image[0]}
               onPress={() => {
-                setCurrentImage(post.image[0]);
+                // setCurrentImage(post.image[0]);
                 setFullScreenIndex(0);
                 setFullScreenVisible(true);
               }}
@@ -204,44 +191,53 @@ const PostShareComponent = (props: any) => {
             </TouchableOpacity>
           )}
           {/* Single video: full width */}
-          {post.video?.length === 1 && (!post.image || post.image.length === 0) && (
-            <TouchableOpacity
-              key={post.video[0]}
-              onPress={() => {
-                setCurrentVideo(post.video[0]);
-                setFullScreenIndex(0);
-                setFullScreenVisible(true);
-              }}
-              activeOpacity={0.8}
-              style={[
-                { width: "100%", aspectRatio: 1, marginBottom: 10, backgroundColor: "#000", overflow: "hidden", justifyContent: "center", alignItems: "center" },
-                theme.shadow,
-              ]}
-            >
-              <Video
-                ref={videoModalRef}
-                source={{ uri: post.video[0] }}
-                style={{ width: "100%", height: "100%" }}
-                useNativeControls={false}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={isVideoPlaying}
-                isLooping={false}
-              />
-              <View
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  justifyContent: "center",
-                  alignItems: "center",
+          {post.video?.length === 1 &&
+            (!post.image || post.image.length === 0) && (
+              <TouchableOpacity
+                key={post.video[0]}
+                onPress={() => {
+                  setCurrentVideo(post.video[0]);
+                  setFullScreenIndex(0);
+                  setFullScreenVisible(true);
                 }}
+                activeOpacity={0.8}
+                style={[
+                  {
+                    width: "100%",
+                    aspectRatio: 1,
+                    marginBottom: 10,
+                    backgroundColor: "#000",
+                    overflow: "hidden",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  },
+                  theme.shadow,
+                ]}
               >
-                <Feather name="play" size={40} color="#fff" />
-              </View>
-            </TouchableOpacity>
-          )}
+                <Video
+                  ref={videoModalRef}
+                  source={{ uri: post.video[0] }}
+                  style={{ width: "100%", height: "100%" }}
+                  useNativeControls={false}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay={isVideoPlaying}
+                  isLooping={false}
+                />
+                <View
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <Feather name="play" size={40} color="#fff" />
+                </View>
+              </TouchableOpacity>
+            )}
           {/* Two-column grid for other cases */}
           {[...(post.image || []), ...(post.video || [])].length !== 1 &&
             [...(post.image || []), ...(post.video || [])].length !== 3 &&
@@ -329,10 +325,26 @@ const PostShareComponent = (props: any) => {
                         >
                           <TouchableOpacity
                             onPress={toggleFullScreenVideoPlay}
-                            style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                            style={{
+                              position: "absolute",
+                              alignSelf: "center",
+                              top: "50%",
+                              marginTop: -32,
+                              zIndex: 20,
+                              backgroundColor: "rgba(0,0,0,0.4)",
+                              borderRadius: 32,
+                              width: 64,
+                              height: 64,
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
                             activeOpacity={0.7}
                           >
-                            <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                            <Feather
+                              name={isFullScreenVideoPlaying ? "pause" : "play"}
+                              size={40}
+                              color="#fff"
+                            />
                           </TouchableOpacity>
                         </View>
                       </TouchableOpacity>
@@ -418,10 +430,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -442,13 +470,16 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "100%",
-                        height: 128,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                        marginBottom: i === 1 ? 5 : 0,
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "100%",
+                          height: 128,
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                          marginBottom: i === 1 ? 5 : 0,
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -465,15 +496,18 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "100%",
-                        height: 128,
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        marginBottom: i === 1 ? 5 : 0,
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "100%",
+                          height: 128,
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          marginBottom: i === 1 ? 5 : 0,
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -497,10 +531,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -526,12 +576,15 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "100%",
+                          height: "100%",
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -548,14 +601,17 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "100%",
+                          height: "100%",
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -579,10 +635,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -609,12 +681,15 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "32.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "32.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -631,14 +706,17 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "32.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "32.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -662,10 +740,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -698,12 +792,15 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "49.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "49.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -720,14 +817,17 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "49.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "49.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -751,10 +851,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -781,12 +897,15 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "32.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "32.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -803,14 +922,17 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "32.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "32.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -834,10 +956,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -869,12 +1007,15 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "49.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#eee",
-                        overflow: "hidden",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "49.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#eee",
+                          overflow: "hidden",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Image
                         source={{ uri }}
@@ -890,14 +1031,17 @@ const PostShareComponent = (props: any) => {
                         setFullScreenVisible(true);
                       }}
                       activeOpacity={0.8}
-                      style={[{
-                        width: "49.5%",
-                        aspectRatio: 1,
-                        backgroundColor: "#000",
-                        overflow: "hidden",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      },theme.shadow]}
+                      style={[
+                        {
+                          width: "49.5%",
+                          aspectRatio: 1,
+                          backgroundColor: "#000",
+                          overflow: "hidden",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        },
+                        theme.shadow,
+                      ]}
                     >
                       <Video
                         ref={fullScreenVideoRef}
@@ -921,10 +1065,26 @@ const PostShareComponent = (props: any) => {
                       >
                         <TouchableOpacity
                           onPress={toggleFullScreenVideoPlay}
-                          style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                          style={{
+                            position: "absolute",
+                            alignSelf: "center",
+                            top: "50%",
+                            marginTop: -32,
+                            zIndex: 20,
+                            backgroundColor: "rgba(0,0,0,0.4)",
+                            borderRadius: 32,
+                            width: 64,
+                            height: 64,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
                           activeOpacity={0.7}
                         >
-                          <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                          <Feather
+                            name={isFullScreenVideoPlaying ? "pause" : "play"}
+                            size={40}
+                            color="#fff"
+                          />
                         </TouchableOpacity>
                       </View>
                     </TouchableOpacity>
@@ -1133,7 +1293,7 @@ const PostShareComponent = (props: any) => {
             { fontSize: 17, fontWeight: "normal", paddingHorizontal: 20 },
           ]}
         >
-          {post.totalLike} likes . {post.totalComments} comments
+          {post.likes?.length} likes . {post.comments?.length} comments
         </Text>
       </View>
       {/* Unified Full-screen modal for all image/video previews with swipe navigation */}
@@ -1162,7 +1322,19 @@ const PostShareComponent = (props: any) => {
             {fullScreenIndex > 0 && (
               <TouchableOpacity
                 onPress={() => setFullScreenIndex(fullScreenIndex - 1)}
-                style={{ position: "absolute", left: 20, top: "50%", marginTop: -32, zIndex: 10, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                style={{
+                  position: "absolute",
+                  left: 20,
+                  top: "50%",
+                  marginTop: -32,
+                  zIndex: 10,
+                  backgroundColor: "rgba(0,0,0,0.4)",
+                  borderRadius: 32,
+                  width: 64,
+                  height: 64,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
                 activeOpacity={0.7}
               >
                 <Feather name="chevron-left" size={40} color="#fff" />
@@ -1172,7 +1344,19 @@ const PostShareComponent = (props: any) => {
             {fullScreenIndex < allMedia.length - 1 && (
               <TouchableOpacity
                 onPress={() => setFullScreenIndex(fullScreenIndex + 1)}
-                style={{ position: "absolute", right: 20, top: "50%", marginTop: -32, zIndex: 10, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                style={{
+                  position: "absolute",
+                  right: 20,
+                  top: "50%",
+                  marginTop: -32,
+                  zIndex: 10,
+                  backgroundColor: "rgba(0,0,0,0.4)",
+                  borderRadius: 32,
+                  width: 64,
+                  height: 64,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
                 activeOpacity={0.7}
               >
                 <Feather name="chevron-right" size={40} color="#fff" />
@@ -1186,7 +1370,11 @@ const PostShareComponent = (props: any) => {
                 return (
                   <Image
                     source={{ uri }}
-                    style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      resizeMode: "contain",
+                    }}
                   />
                 );
               } else {
@@ -1204,10 +1392,26 @@ const PostShareComponent = (props: any) => {
                     {/* Play/Pause Button Overlay */}
                     <TouchableOpacity
                       onPress={toggleFullScreenVideoPlay}
-                      style={{ position: "absolute", alignSelf: "center", top: "50%", marginTop: -32, zIndex: 20, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 32, width: 64, height: 64, justifyContent: "center", alignItems: "center" }}
+                      style={{
+                        position: "absolute",
+                        alignSelf: "center",
+                        top: "50%",
+                        marginTop: -32,
+                        zIndex: 20,
+                        backgroundColor: "rgba(0,0,0,0.4)",
+                        borderRadius: 32,
+                        width: 64,
+                        height: 64,
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
                       activeOpacity={0.7}
                     >
-                      <Feather name={isFullScreenVideoPlaying ? 'pause' : 'play'} size={40} color="#fff" />
+                      <Feather
+                        name={isFullScreenVideoPlaying ? "pause" : "play"}
+                        size={40}
+                        color="#fff"
+                      />
                     </TouchableOpacity>
                   </View>
                 );

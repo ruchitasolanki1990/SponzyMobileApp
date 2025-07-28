@@ -102,5 +102,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
+  error: {
+    color: 'red',
+    fontSize: 13,
+    marginBottom: 8,
+    marginLeft: 2,
+  },
 });
 export default styles;
